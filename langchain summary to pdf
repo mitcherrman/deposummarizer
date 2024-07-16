@@ -1,0 +1,98 @@
+import time
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from langchain_openai import ChatOpenAI
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser
+
+# Initialize Langchain OpenAI model
+llm = ChatOpenAI(openai_api_key="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")  # Use a secure method to handle your API key
+
+# Define a prompt template for better input to the LLM
+prompt = ChatPromptTemplate.from_messages([
+    ("system", "The input is a textfile of a legal deposition. Summarize every page into a single paragraph and list the page number."),
+    ("user", "{input}")
+])
+
+# Initialize output parser to convert chat message to string
+output_parser = StrOutputParser()
+
+# Combine prompt, LLM, and output parser into a chain
+chain = prompt | llm | output_parser
+
+def read_file(file_path):
+    with open(file_path, 'r', encoding='utf-8') as file:
+        return file.read()
+
+def split_text_by_page(text):
+    # Assuming each page starts with "Page" followed by a number
+    pages = text.split('\nPage ')
+    pages = [page if i == 0 else 'Page ' + page for i, page in enumerate(pages)]
+    return pages
+
+def summarize_deposition(text):
+    response = chain.invoke({"input": text, "max_tokens": 1000})
+    return response.strip()
+
+def write_summaries_to_pdf(summaries, output_path):
+    doc = SimpleDocTemplate(output_path, pagesize=letter)
+    styles = getSampleStyleSheet()
+
+    # Define custom styles
+    page_style = ParagraphStyle(
+        name='Page',
+        parent=styles['Normal'],
+        fontSize=14,
+        leading=18,
+        spaceAfter=12,
+        textColor='black',
+        bold=True
+    )
+    summary_style = ParagraphStyle(
+        name='Summary',
+        parent=styles['Normal'],
+        fontSize=12,
+        leading=15,
+        spaceAfter=12,
+        textColor='black'
+    )
+
+    story = []
+
+    for page_num, summary in enumerate(summaries, start=1):
+        page_text = f"Page {page_num}"
+        story.append(Paragraph(page_text, page_style))
+        story.append(Paragraph(summary, summary_style))
+        story.append(Spacer(1, 12))  # Add some space between summaries
+
+    doc.build(story)
+
+# Specify the input and output file paths
+input_path = "PMQFalihAudish 1st textfile.txt"  # Adjust path as needed
+output_path = "PMQFalihAudish 1st final summarized_depos.pdf"
+
+# Read the input text file
+input_text = read_file(input_path)
+
+# Split the input text by pages
+text_pages = split_text_by_page(input_text)
+
+summaries = []
+
+for page in text_pages:
+    if len(page) > 150:  # Only process pages with text length greater than 150 characters
+        try:
+            summary = summarize_deposition(page)
+            summaries.append(summary)
+            print(f"Processed page of size {len(page)}")
+        except Exception as e:
+            print(f"Error processing page: {e}")
+        time.sleep(1)  # Wait for 1 second between requests
+    else:
+        print(f"Skipped page of size {len(page)}")
+
+# Write the summaries to the output PDF file
+write_summaries_to_pdf(summaries, output_path)
+
+print("Summary saved to:", output_path)
