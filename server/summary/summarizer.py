@@ -6,9 +6,11 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+from decouple import config
+import io
 
 # Initialize Langchain OpenAI model
-llm = ChatOpenAI(openai_api_key="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", model_name="gpt-4o-mini")  # Use a secure method to handle your API key
+llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'))  # Use a secure method to handle your API key
 
 # Define a prompt template for better input to the LLM
 prompt = ChatPromptTemplate.from_messages([
@@ -75,7 +77,8 @@ def split_text_by_page(text):
     return pages
 
 def write_summaries_to_pdf(summaries, output_path):
-    doc = SimpleDocTemplate(output_path, pagesize=letter)
+    pdf_file = io.BytesIO()
+    doc = SimpleDocTemplate(pdf_file, pagesize=letter)
     styles = getSampleStyleSheet()
 
     # Define custom styles
@@ -106,6 +109,9 @@ def write_summaries_to_pdf(summaries, output_path):
         story.append(Spacer(1, 12))  # Add some space between summaries
 
     doc.build(story)
+    pdf_file.seek(0)
+    with open(output_path, 'wb') as f:
+            f.write(pdf_file.getbuffer())
 
 def summarize_deposition_text(text):
     response = chain.invoke({"input": text, "max_tokens": 52000})
@@ -127,15 +133,21 @@ def summarize_deposition(text_pages):
             print(f"Skipped page of size {len(page)}")
     return summaries
 
-# Provide the path to your PDF and the output text file path
-rawText = extract_text_with_numbers("C:\\Users\\Mitchell\\OneDrive\\Desktop\\Deposition Summarizer\\deposition pdfs\\AshrafElsayeghMD.pdf", None)
+def create_summary(request):
+    file_path = request.get('file_path', False)
+    if not file_path:
+        return False
+    # Provide the path to your PDF and the output text file path
+    rawText = extract_text_with_numbers(file_path, None)
 
-# Split the input text by pages
-text_pages = split_text_by_page(rawText)
+    # Split the input text by pages
+    text_pages = split_text_by_page(rawText)
 
-summarizedPages = summarize_deposition(text_pages)
+    summarizedPages = summarize_deposition(text_pages)
 
-# Write the summaries to the output PDF file
-write_summaries_to_pdf(summarizedPages, "AshrafElsayeghMD 3rd final summarized_depos.pdf")
+    # Write the summaries to the output PDF file
+    write_summaries_to_pdf(summarizedPages, r"C:\Users\Mitchell\OneDrive\Documents\workspace\deposummarizer\summaries\test\output.pdf")
 
-print("Summary saved to:", "AshrafElsayeghMD 3rd final summarized_depos.pdf")
+    print("Summary saved to:", "output.pdf")
+    return True
+
