@@ -146,7 +146,7 @@ def create_summary(request):
     summarizedPages = summarize_deposition(text_pages)
 
     # Write the summaries to the output PDF file
-    write_summaries_to_pdf(summarizedPages, r"C:\Users\Mitchell\OneDrive\Documents\workspace\deposummarizer\summaries\test\output.pdf")
+    write_summaries_to_pdf(summarizedPages, config('OUTPUT_FILE_PATH'))
 
     print("Summary saved to:", "output.pdf")
     return True

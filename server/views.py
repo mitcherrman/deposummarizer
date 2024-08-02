@@ -6,8 +6,7 @@ from decouple import config
 
 @csrf_exempt
 def summarize(request):
-	json_da
-	ta = json.loads(request.body)
+	json_data = json.loads(request.body)
 	print(json_data)
 	if not create_summary(json_data):
 		return HttpResponse("Error: no file_path")
