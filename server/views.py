@@ -13,11 +13,13 @@ def summarize(request):
 	else:
 		return HttpResponse("Here's the text of the web page.")
 
-def output(request):
+def output(request, filename=''):
+	if filename == '':
+		return HttpResponse("Give me a real file name bruv")
 	try:
-		with open(config('OUTPUT_FILE_PATH'), 'rb') as pdf:
+		with open(config('OUTPUT_FILE_PATH') + filename, 'rb') as pdf:
 			response = HttpResponse(pdf.read(), content_type='application/pdf')
 			response['Content-Disposition'] = 'filename=some_file.txt'
 			return response
 	except FileNotFoundError:
-		return HttpResponse("Working on it")
+		return HttpResponse("File ain't ready yet boyo")

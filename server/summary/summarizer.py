@@ -8,6 +8,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from decouple import config
 import io
+import os
 
 # Initialize Langchain OpenAI model
 llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'))  # Use a secure method to handle your API key
@@ -136,7 +137,12 @@ def summarize_deposition(text_pages):
 def create_summary(request):
     file_path = request.get('file_path', False)
     if not file_path:
-        return False
+        return 
+    
+    # grab the file name
+    filename = os.path.basename(file_path)
+    print("input filename is " + filename)
+
     # Provide the path to your PDF and the output text file path
     rawText = extract_text_with_numbers(file_path, None)
 
@@ -146,8 +152,8 @@ def create_summary(request):
     summarizedPages = summarize_deposition(text_pages)
 
     # Write the summaries to the output PDF file
-    write_summaries_to_pdf(summarizedPages, config('OUTPUT_FILE_PATH'))
+    write_summaries_to_pdf(summarizedPages, config('OUTPUT_FILE_PATH') + filename)
 
-    print("Summary saved to:", "output.pdf")
+    print("Summary saved to:", filename)
     return True
 

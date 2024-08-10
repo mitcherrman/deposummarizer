@@ -21,5 +21,5 @@ from . import views
 urlpatterns = [
     path('admin', admin.site.urls),
     path('summarize', views.summarize, name='summarize'),
-    path('output', views.output, name='output')
+    path('output/<str:filename>', views.output, name='output')
 ]
