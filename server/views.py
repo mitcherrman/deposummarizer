@@ -9,15 +9,23 @@ from threading import Thread
 
 @csrf_exempt
 def summarize(request):
+	try:
+		if request.session['db_len'] == -1:
+			return HttpResponse("Summary in progress, please wait.")
+	except: pass
 	json_data = json.loads(request.body)
 	print(json_data)
 	dirname = f"vectordb_data_{DB_PIECE_SIZE}k_" + request.META['REMOTE_ADDR'] + "_OpenAI"
 	if os.path.isdir(dirname): shutil.rmtree(dirname)
+	if os.path.isfile(config('OUTPUT_FILE_PATH')): os.remove(config('OUTPUT_FILE_PATH'))
 	id = request.META['REMOTE_ADDR']
 	request.session['db_len'] = -1
 	def r():
-		request.session['prompt_append'] = []
-		request.session['db_len'] = create_summary(json_data, id)
+		try:
+			request.session['prompt_append'] = []
+			request.session['db_len'] = create_summary(json_data, id)
+		finally:
+			request.session['db_len'] = 0
 	t = Thread(target=r)
 	t.start()
 	return HttpResponse("Summary started.")
@@ -44,6 +52,7 @@ def clear(request):
 	request.session.clear()
 	dirname = f"vectordb_data_{DB_PIECE_SIZE}k_" + request.META['REMOTE_ADDR'] + "_OpenAI"
 	if os.path.isdir(dirname): shutil.rmtree(dirname)
+	if os.path.isfile(config('OUTPUT_FILE_PATH')): os.remove(config('OUTPUT_FILE_PATH'))
 	return HttpResponse("session cleared")
 
 def output(request):
@@ -57,7 +66,7 @@ def output(request):
 			if request.session['db_len'] == -1:
 				return HttpResponse("Working on it")
 			elif request.session['db_len'] == 0:
-				return HttpResponse("Error: file not found")
+				return HttpResponse("Error during summary: does the file exist?")
 			else:
 				return HttpResponse("Unknown error")
 		except KeyError:
