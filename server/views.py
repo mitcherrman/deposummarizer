@@ -2,8 +2,7 @@ from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from server.summary.summarizer import create_summary
 from server.summary.deposition_chatbot import askQuestion
-import json, shutil, pickle, io, os
-from server.serializer import VectorUnpickler
+import json, shutil, os
 from server.summary.deposition_chatbot import DB_PIECE_SIZE
 from decouple import config
 
