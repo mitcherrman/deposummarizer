@@ -12,7 +12,7 @@ def summarize(request):
 	json_data = json.loads(request.body)
 	print(json_data)
 	dirname = f"vectordb_data_{DB_PIECE_SIZE}k_" + request.META['REMOTE_ADDR'] + "_OpenAI"
-	#if os.path.isdir(dirname): shutil.rmtree(dirname)
+	if os.path.isdir(dirname): shutil.rmtree(dirname)
 	id = request.META['REMOTE_ADDR']
 	l = create_summary(json_data, id)
 	if l == 0:
