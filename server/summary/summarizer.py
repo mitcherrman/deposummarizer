@@ -3,11 +3,12 @@ import time
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from decouple import config
 import io
+import server.summary.deposition_chatbot as cb
 
 # Initialize Langchain OpenAI model
 llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'))  # Use a secure method to handle your API key
@@ -133,21 +134,23 @@ def summarize_deposition(text_pages):
             print(f"Skipped page of size {len(page)}")
     return summaries
 
-def create_summary(request):
+def create_summary(request, id):
     file_path = request.get('file_path', False)
     if not file_path:
-        return False
+        return 0
     # Provide the path to your PDF and the output text file path
     rawText = extract_text_with_numbers(file_path, None)
+    l = cb.initBot(rawText, id)
 
     # Split the input text by pages
-    text_pages = split_text_by_page(rawText)
+    # text_pages = split_text_by_page(rawText)
 
-    summarizedPages = summarize_deposition(text_pages)
+    # summarizedPages = summarize_deposition(text_pages)
 
     # Write the summaries to the output PDF file
-    write_summaries_to_pdf(summarizedPages, config('OUTPUT_FILE_PATH'))
+    # write_summaries_to_pdf(summarizedPages, config('OUTPUT_FILE_PATH'))
+    # write_summaries_to_pdf(rawText, config('OUTPUT_FILE_PATH'))
 
     print("Summary saved to:", "output.pdf")
-    return True
+    return l
 

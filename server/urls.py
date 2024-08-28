@@ -21,5 +21,7 @@ from . import views
 urlpatterns = [
     path('admin', admin.site.urls),
     path('summarize', views.summarize, name='summarize'),
-    path('output', views.output, name='output')
+    path('output', views.output, name='output'),
+    path('clear', views.clear, name='clear'),
+    path('ask', views.ask, name='ask')
 ]
