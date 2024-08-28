@@ -5,6 +5,7 @@ from server.summary.deposition_chatbot import askQuestion
 import json, shutil, os
 from server.summary.deposition_chatbot import DB_PIECE_SIZE
 from decouple import config
+from threading import Thread
 
 @csrf_exempt
 def summarize(request):
@@ -13,18 +14,23 @@ def summarize(request):
 	dirname = f"vectordb_data_{DB_PIECE_SIZE}k_" + request.META['REMOTE_ADDR'] + "_OpenAI"
 	if os.path.isdir(dirname): shutil.rmtree(dirname)
 	id = request.META['REMOTE_ADDR']
-	l = create_summary(json_data, id)
-	if l == 0:
-		return HttpResponse("Error: no file_path")
-	else:
-		print("Adding session variables...")
-		request.session['db_len'] = l
+	request.session['db_len'] = -1
+	def r():
 		request.session['prompt_append'] = []
-		return HttpResponse("Here's the text of the web page.")
+		request.session['db_len'] = create_summary(json_data, id)
+	t = Thread(target=r)
+	t.start()
+	return HttpResponse("Summary started.")
+	# l = create_summary(json_data, id)
+	# if l == 0:
+	# 	return HttpResponse("Error: no file_path")
+	# else:
+	# 	request.session['db_len'] = l
+	# 	request.session['prompt_append'] = []
+	# 	return HttpResponse("Here's the text of the web page.")
 
 @csrf_exempt
 def ask(request):
-	print(request.session.items())
 	json_data = json.loads(request.body)
 	print(json_data)
 	id = request.META['REMOTE_ADDR']
@@ -35,11 +41,9 @@ def ask(request):
 
 @csrf_exempt
 def clear(request):
-	if request.session.get('db_len'):
-		del request.session['db_len']
-		del request.session['init']
-		del request.session['prompt_append']
-		shutil.rmtree(f"vectordb_data_{DB_PIECE_SIZE}k_" + request.META['REMOTE_ADDR'] + "_OpenAI")
+	request.session.clear()
+	dirname = f"vectordb_data_{DB_PIECE_SIZE}k_" + request.META['REMOTE_ADDR'] + "_OpenAI"
+	if os.path.isdir(dirname): shutil.rmtree(dirname)
 	return HttpResponse("session cleared")
 
 def output(request):
@@ -49,4 +53,12 @@ def output(request):
 			response['Content-Disposition'] = 'filename=some_file.txt'
 			return response
 	except FileNotFoundError:
-		return HttpResponse("Working on it")
+		try:
+			if request.session['db_len'] == -1:
+				return HttpResponse("Working on it")
+			elif request.session['db_len'] == 0:
+				return HttpResponse("Error: file not found")
+			else:
+				return HttpResponse("Unknown error")
+		except KeyError:
+			return HttpResponse("No input file found, summarize using the /summarize view")
