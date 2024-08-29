@@ -27,6 +27,7 @@ def initBot(fullText, id):
     persist_path = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + id + "_OpenAI"
     split = RecursiveCharacterTextSplitter(chunk_size = DB_PIECE_SIZE*1000, chunk_overlap = DB_PIECE_SIZE*200, add_start_index = True)
     pieces = split.split_text(fullText)
+    #loads database from folder if possible, not used in production but helpful when testing to save on api calls
     if LOAD_DB_FROM_FOLDER and os.path.isdir(persist_path):
         print("Saved vector database found, loading from file...")
         vectordb = Chroma(persist_directory=persist_path, embedding_function=embedding)
@@ -34,7 +35,6 @@ def initBot(fullText, id):
         print("Saved vector database not found/not allowed, building and saving vector database...")
         vectordb = Chroma.from_texts(texts=pieces, embedding=embedding, persist_directory=persist_path)
     l = len(pieces)
-    # retriever = vectordb.as_retriever(search_type="similarity",search_kwargs={"k":max(6,int(l/32))}) #play with this number
     print("Context creation finished.")
     return l
 
@@ -43,9 +43,11 @@ def combine_text(msgs):
 
 #begin Q/A loop
 def askQuestion(question, id, prompt_append, l):
+    #set up vectordb retriever
     path = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + id + "_OpenAI"
     vectordb = Chroma(persist_directory=path, embedding_function=embedding)
     retriever = vectordb.as_retriever(search_type="similarity",search_kwargs={"k":max(6,int(l/32))}) #play with this number
+    #set up context
     context = combine_text(retriever.invoke(question))
     print(f"Context length = {len(context)} characters")
     #set up prompt (derived from https://smith.langchain.com/hub/rlm/rag-prompt)

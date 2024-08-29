@@ -9,18 +9,21 @@ from threading import Thread
 
 @csrf_exempt
 def summarize(request):
+	#check if summary already started
 	try:
 		if request.session['init'] and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf"):
 			return HttpResponse("Summary in progress, please wait.")
 	except: pass
 	json_data = json.loads(request.body)
 	print(json_data)
+	#clean up previous summaries
 	dirname = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + request.session.session_key + "_OpenAI"
-	#if os.path.isdir(dirname): shutil.rmtree(dirname)
+	if os.path.isdir(dirname): shutil.rmtree(dirname)
 	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
 	if os.path.isfile(f"len_data/{request.session.session_key}"): os.remove(f"len_data/{request.session.session_key}")
 	request.session['init'] = True
 	request.session['prompt_append'] = []
+	#start summarizing thread
 	def r(id):
 		l = create_summary(json_data, id)
 		with open(f"len_data/{id}", 'w') as f:
@@ -40,6 +43,7 @@ def summarize(request):
 def ask(request):
 	json_data = json.loads(request.body)
 	print(json_data)
+	#check for finished summary
 	id = request.session.session_key
 	if (not request.session.get('init')) or not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): return HttpResponse("No file summarized")
 	with open(f"len_data/{id}", 'r') as f:
@@ -48,12 +52,14 @@ def ask(request):
 	request.session['prompt_append'] = response[1]
 	return HttpResponse(response[0])
 
+#debug view to print session in console, remove in production
 @csrf_exempt
 def session(request):
 	print(request.session)
 	print(request.session.items())
 	return HttpResponse("done")
 
+#clears session/associated files
 @csrf_exempt
 def clear(request):
 	try:
@@ -76,8 +82,10 @@ def output(request):
 		try:
 			def get_id():
 				with open(f"len_data/{request.session.session_key}") as f: return int(f.read())
+			#check for summary in progress
 			if request.session.get('init') and not os.path.isfile(f"len_data/{request.session.session_key}"):
 				return HttpResponse("Working on it")
+			#summarize returns 0 if the path isn't given in request body
 			elif (get_id() == 0):
 				return HttpResponse("Error during summary: does the file path exist?")
 			else:
