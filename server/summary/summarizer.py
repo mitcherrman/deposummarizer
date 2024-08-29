@@ -143,13 +143,13 @@ def create_summary(request, id):
     l = cb.initBot(rawText, id)
 
     # Split the input text by pages
-    # text_pages = split_text_by_page(rawText)
+    text_pages = split_text_by_page(rawText)
 
     # summarizedPages = summarize_deposition(text_pages)
 
-    # # Write the summaries to the output PDF file
+    # # # # Write the summaries to the output PDF file
     # write_summaries_to_pdf(summarizedPages, config('OUTPUT_FILE_PATH'))
-    # write_summaries_to_pdf(rawText, config('OUTPUT_FILE_PATH'))
+    write_summaries_to_pdf(text_pages[0], config('OUTPUT_FILE_PATH'))
 
     print("Summary saved to:", "output.pdf")
     return l

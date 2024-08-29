@@ -23,5 +23,6 @@ urlpatterns = [
     path('summarize', views.summarize, name='summarize'),
     path('output', views.output, name='output'),
     path('clear', views.clear, name='clear'),
+    path('session', views.session, name='session'),
     path('ask', views.ask, name='ask')
 ]
