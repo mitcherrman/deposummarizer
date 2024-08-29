@@ -10,14 +10,15 @@ from threading import Thread
 @csrf_exempt
 def summarize(request):
 	try:
-		if request.session['init'] and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"):
+		if request.session['init'] and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf"):
 			return HttpResponse("Summary in progress, please wait.")
 	except: pass
 	json_data = json.loads(request.body)
 	print(json_data)
-	dirname = f"vectordb_data_{DB_PIECE_SIZE}k_" + request.session.session_key + "_OpenAI"
-	if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+	dirname = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + request.session.session_key + "_OpenAI"
+	#if os.path.isdir(dirname): shutil.rmtree(dirname)
+	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
+	if os.path.isfile(f"len_data/{request.session.session_key}"): os.remove(f"len_data/{request.session.session_key}")
 	request.session['init'] = True
 	request.session['prompt_append'] = []
 	def r(id):
@@ -56,17 +57,18 @@ def session(request):
 @csrf_exempt
 def clear(request):
 	try:
-		dirname = f"vectordb_data_{DB_PIECE_SIZE}k_" + request.session.session_key + "_OpenAI"
+		dirname = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + request.session.session_key + "_OpenAI"
 	except: pass
 	request.session.clear()
 	if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
 	if os.path.isfile(f"len_data/{request.session.session_key}"): os.remove(f"len_data/{request.session.session_key}")
 	return HttpResponse("session cleared")
 
 def output(request):
 	try:
-		with open(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf", 'rb') as pdf:
+		print(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
+		with open(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf", 'rb') as pdf:
 			response = HttpResponse(pdf.read(), content_type='application/pdf')
 			response['Content-Disposition'] = 'filename=some_file.txt'
 			return response
