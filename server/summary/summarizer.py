@@ -149,7 +149,7 @@ def create_summary(request, id):
 
     # # # # Write the summaries to the output PDF file
     # write_summaries_to_pdf(summarizedPages, config('OUTPUT_FILE_PATH'))
-    write_summaries_to_pdf(text_pages[0], config('OUTPUT_FILE_PATH'))
+    write_summaries_to_pdf(text_pages[0], f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
 
     print("Summary saved to:", "output.pdf")
     return l

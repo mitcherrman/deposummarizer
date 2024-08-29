@@ -10,14 +10,14 @@ from threading import Thread
 @csrf_exempt
 def summarize(request):
 	try:
-		if request.session['init'] and not os.path.isfile(config('OUTPUT_FILE_PATH')):
+		if request.session['init'] and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"):
 			return HttpResponse("Summary in progress, please wait.")
 	except: pass
 	json_data = json.loads(request.body)
 	print(json_data)
 	dirname = f"vectordb_data_{DB_PIECE_SIZE}k_" + request.session.session_key + "_OpenAI"
 	if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(config('OUTPUT_FILE_PATH')): os.remove(config('OUTPUT_FILE_PATH'))
+	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
 	request.session['init'] = True
 	request.session['prompt_append'] = []
 	def r(id):
@@ -40,7 +40,7 @@ def ask(request):
 	json_data = json.loads(request.body)
 	print(json_data)
 	id = request.session.session_key
-	if (not request.session.get('init')) or not os.path.isfile(config('OUTPUT_FILE_PATH')): return HttpResponse("No file summarized")
+	if (not request.session.get('init')) or not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): return HttpResponse("No file summarized")
 	with open(f"len_data/{id}", 'r') as f:
 		l = int(f.read())
 	response = askQuestion(json_data.get('question', False), id, request.session['prompt_append'], l)
@@ -60,13 +60,13 @@ def clear(request):
 	except: pass
 	request.session.clear()
 	if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(config('OUTPUT_FILE_PATH')): os.remove(config('OUTPUT_FILE_PATH'))
+	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
 	if os.path.isfile(f"len_data/{request.session.session_key}"): os.remove(f"len_data/{request.session.session_key}")
 	return HttpResponse("session cleared")
 
 def output(request):
 	try:
-		with open(config('OUTPUT_FILE_PATH'), 'rb') as pdf:
+		with open(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf", 'rb') as pdf:
 			response = HttpResponse(pdf.read(), content_type='application/pdf')
 			response['Content-Disposition'] = 'filename=some_file.txt'
 			return response
