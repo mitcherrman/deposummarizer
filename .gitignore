@@ -3,4 +3,4 @@ deposition1.pdf
 pdf_text.txt
 summaries/*
 len_data/*
-vectordb_data_*
+databases/*

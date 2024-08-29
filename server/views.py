@@ -7,6 +7,7 @@ from server.summary.deposition_chatbot import DB_PIECE_SIZE
 from decouple import config
 from threading import Thread
 
+#ssummarizes input and sets up chatbot
 @csrf_exempt
 def summarize(request):
 	#check if summary already started
@@ -31,14 +32,8 @@ def summarize(request):
 	t = Thread(target=r,args=[request.session.session_key])
 	t.start()
 	return HttpResponse("Summary started.")
-	# l = create_summary(json_data, id)
-	# if l == 0:
-	# 	return HttpResponse("Error: no file_path")
-	# else:
-	# 	request.session['db_len'] = l
-	# 	request.session['prompt_append'] = []
-	# 	return HttpResponse("Here's the text of the web page.")
 
+#ask a question to the chatbot, requires summary to have been done first
 @csrf_exempt
 def ask(request):
 	json_data = json.loads(request.body)
@@ -71,6 +66,7 @@ def clear(request):
 	if os.path.isfile(f"len_data/{request.session.session_key}"): os.remove(f"len_data/{request.session.session_key}")
 	return HttpResponse("session cleared")
 
+#provides output pdf
 def output(request):
 	try:
 		print(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
