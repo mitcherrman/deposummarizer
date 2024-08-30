@@ -3,12 +3,13 @@ import time
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
+from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from decouple import config
 import io
 import server.summary.deposition_chatbot as cb
+from django.conf import settings
 
 # Initialize Langchain OpenAI model
 llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'))  # Use a secure method to handle your API key
@@ -144,12 +145,13 @@ def create_summary(request, id):
 
     # Split the input text by pages
     text_pages = split_text_by_page(rawText)
+    if not settings.TEST_WITHOUT_AI:
+        summarizedPages = summarize_deposition(text_pages, id)
 
-    # summarizedPages = summarize_deposition(text_pages, id)
-
-    # Write the summaries to the output PDF file
-    # write_summaries_to_pdf(summarizedPages, f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
-    write_summaries_to_pdf(text_pages[0], f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+        # Write the summaries to the output PDF file
+        write_summaries_to_pdf(summarizedPages, f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+    else:
+        write_summaries_to_pdf(text_pages[0], f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
 
     print(f"[{id}]: Summary saved to:", f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
     return l

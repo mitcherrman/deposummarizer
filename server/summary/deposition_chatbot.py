@@ -32,16 +32,13 @@ def initBot(fullText, id):
     split = RecursiveCharacterTextSplitter(chunk_size = DB_PIECE_SIZE*1000, chunk_overlap = DB_PIECE_SIZE*200, add_start_index = True)
     pieces = split.split_text(fullText)
     #loads database from folder if possible, not used in production but helpful when testing to save on api calls
-    db_lock.acquire()
-    try:
+    with db_lock:
         if LOAD_DB_FROM_FOLDER and os.path.isdir(persist_path):
             print(f"[{id}]: Saved vector database found, loading from file...")
             vectordb = Chroma(persist_directory=persist_path, embedding_function=embedding)
         else:
             print(f"[{id}]: Saved vector database not found/not allowed, building and saving vector database...")
             vectordb = Chroma.from_texts(texts=pieces, embedding=embedding, persist_directory=persist_path)
-    finally:
-        db_lock.release()
     l = len(pieces)
     print(f"[{id}]: Context creation finished.")
     return l

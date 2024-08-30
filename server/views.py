@@ -1,8 +1,9 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, HttpResponseNotFound
 from django.views.decorators.csrf import csrf_exempt
+from django.conf import settings
 from server.summary.summarizer import create_summary
 from server.summary.deposition_chatbot import askQuestion
-import json, shutil, os
+import shutil, os
 from server.summary.deposition_chatbot import DB_PIECE_SIZE
 from decouple import config
 from threading import Thread
@@ -15,23 +16,23 @@ def summarize(request):
 	id = request.session.session_key
 	#check if summary already started
 	try:
-		if request.session['init'] and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"):
+		if request.session['db_len'] == -1 and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"):
 			return HttpResponse("Summary in progress, please wait.")
 	except: pass
 	json_data = request.GET #json.loads(request.body)
 	print(f"[{id}]: {json_data}")
 	#clean up previous summaries
 	dirname = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + id + "_OpenAI"
-	if os.path.isdir(dirname): shutil.rmtree(dirname)
+	if not settings.TEST_WITHOUT_AI:
+		if os.path.isdir(dirname): shutil.rmtree(dirname)
 	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
-	if os.path.isfile(f"len_data/{id}"): os.remove(f"len_data/{id}")
-	request.session['init'] = True
+	request.session['db_len'] = -1
 	request.session['prompt_append'] = []
 	#start summarizing thread
 	def r(id):
 		l = create_summary(json_data, id)
-		with open(f"len_data/{id}", 'w') as f:
-			f.write(str(l))
+		request.session['db_len'] = l
+		request.session.save()
 	t = Thread(target=r,args=[id])
 	t.start()
 	return HttpResponse("Summary started.")
@@ -45,16 +46,16 @@ def ask(request):
 	json_data = request.GET #json.loads(request.body)
 	print(f"[{id}]: {json_data}")
 	#check for finished summary
-	if (not request.session.get('init')) or not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): return HttpResponse("No file summarized")
-	with open(f"len_data/{id}", 'r') as f:
-		l = int(f.read())
-	response = askQuestion(json_data.get('question', False), id, request.session['prompt_append'], l)
+	if (not request.session.get('db_len')) or request.session['db_len'] <= 0: return HttpResponse("No file summarized")
+	response = askQuestion(json_data.get('question', False), id, request.session['prompt_append'], request.session['db_len'])
 	request.session['prompt_append'] = response[1]
 	return HttpResponse(response[0])
 
 #debug view to print session in console, remove in production
 @csrf_exempt
 def session(request):
+	if not settings.DEBUG:
+		return HttpResponseNotFound()
 	if not request.session.session_key:
 		request.session.save()
 	print(request.session.session_key)
@@ -71,7 +72,6 @@ def clear(request):
 	request.session.clear()
 	if os.path.isdir(dirname): shutil.rmtree(dirname)
 	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
-	if os.path.isfile(f"len_data/{request.session.session_key}"): os.remove(f"len_data/{request.session.session_key}")
 	return HttpResponse("session cleared")
 
 #provides output pdf
@@ -87,13 +87,11 @@ def output(request):
 			return response
 	except FileNotFoundError:
 		try:
-			def get_id():
-				with open(f"len_data/{request.session.session_key}") as f: return int(f.read())
 			#check for summary in progress
-			if request.session.get('init') and not os.path.isfile(f"len_data/{request.session.session_key}"):
+			if request.session.get['db_len'] == -1:
 				return HttpResponse("Working on it")
 			#summarize returns 0 if the path isn't given in request body
-			elif (get_id() == 0):
+			elif (request.session.get['db_len'] == 0):
 				return HttpResponse("Error during summary: does the file path exist?")
 			else:
 				return HttpResponse("Unknown error")
