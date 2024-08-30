@@ -22,7 +22,7 @@ def summarize(request):
 	json_data = request.GET #json.loads(request.body)
 	print(f"[{id}]: {json_data}")
 	#clean up previous summaries
-	dirname = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + id + "_OpenAI"
+	dirname = settings.CHROMA_URL + id
 	if not settings.TEST_WITHOUT_AI:
 		if os.path.isdir(dirname): shutil.rmtree(dirname)
 	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
@@ -67,7 +67,7 @@ def session(request):
 @csrf_exempt
 def clear(request):
 	try:
-		dirname = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + request.session.session_key + "_OpenAI"
+		dirname = settings.CHROMA_URL + request.session.session_key
 	except: pass
 	request.session.clear()
 	if os.path.isdir(dirname): shutil.rmtree(dirname)
@@ -80,8 +80,8 @@ def output(request):
 		request.session.save()
 	id = request.session.session_key
 	try:
-		print(f"[{id}]: {config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
-		with open(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf", 'rb') as pdf:
+		print(f"[{id}]: {config('OUTPUT_FILE_PATH')}/{request.session.session_key}.pdf")
+		with open(f"{config('OUTPUT_FILE_PATH')}/{request.session.session_key}.pdf", 'rb') as pdf:
 			response = HttpResponse(pdf.read(), content_type='application/pdf')
 			response['Content-Disposition'] = 'filename=some_file.txt'
 			return response

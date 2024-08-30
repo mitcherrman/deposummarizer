@@ -10,6 +10,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from decouple import config
 from threading import Lock
+from django.conf import settings
 
 LOAD_DB_FROM_FOLDER = True
 DEBUG_MODE = False
@@ -28,7 +29,7 @@ def initBot(fullText, id):
     file.write(fullText)
     file.close()
     print(f"[{id}]: Setting up model context...")
-    persist_path = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + id + "_OpenAI"
+    persist_path = settings.CHROMA_URL + id
     split = RecursiveCharacterTextSplitter(chunk_size = DB_PIECE_SIZE*1000, chunk_overlap = DB_PIECE_SIZE*200, add_start_index = True)
     pieces = split.split_text(fullText)
     #loads database from folder if possible, not used in production but helpful when testing to save on api calls
@@ -49,7 +50,7 @@ def combine_text(msgs):
 #begin Q/A loop
 def askQuestion(question, id, prompt_append, l):
     #set up vectordb retriever
-    path = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + id + "_OpenAI"
+    path = settings.CHROMA_URL + id
     vectordb = Chroma(persist_directory=path, embedding_function=embedding)
     retriever = vectordb.as_retriever(search_type="similarity",search_kwargs={"k":max(6,int(l/32))}) #play with this number
     #set up context

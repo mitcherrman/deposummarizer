@@ -123,3 +123,5 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 TEST_WITHOUT_AI = True #if set to true, does not recreate database and generates dummy summary to save on API calls
+
+CHROMA_URL = 'databases/' #path to store chroma vector databases

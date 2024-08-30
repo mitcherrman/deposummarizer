@@ -149,10 +149,10 @@ def create_summary(request, id):
         summarizedPages = summarize_deposition(text_pages, id)
 
         # Write the summaries to the output PDF file
-        write_summaries_to_pdf(summarizedPages, f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+        write_summaries_to_pdf(summarizedPages, f"{config('OUTPUT_FILE_PATH')}/{id}.pdf")
     else:
-        write_summaries_to_pdf(text_pages[0], f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+        write_summaries_to_pdf(text_pages[0], f"{config('OUTPUT_FILE_PATH')}/{id}.pdf")
 
-    print(f"[{id}]: Summary saved to:", f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+    print(f"[{id}]: Summary saved to:", f"{config('OUTPUT_FILE_PATH')}/{id}.pdf")
     return l
 
