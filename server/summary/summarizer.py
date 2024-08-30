@@ -25,7 +25,7 @@ output_parser = StrOutputParser()
 # Combine prompt, LLM, and output parser into a chain
 chain = prompt | llm | output_parser
 
-def extract_text_with_numbers(pdf_path, output_txt_path):
+def extract_text_with_numbers(pdf_path, output_txt_path, id):
     # Open the PDF
     doc = fitz.open(pdf_path)
     all_text = []
@@ -56,9 +56,9 @@ def extract_text_with_numbers(pdf_path, output_txt_path):
             all_text.append(f"Page {page_num + 1}")
             all_text.append(filtered_text)
             all_text.append("")  # Add a space between pages for readability
-            print(f"Processed page {page_num + 1} of size {len(filtered_text)}")
+            print(f"[{id}]: Processed page {page_num + 1} of size {len(filtered_text)}")
         else:
-            print(f"Skipped page {page_num + 1} of size {len(filtered_text)}")
+            print(f"[{id}]: Skipped page {page_num + 1} of size {len(filtered_text)}")
 
     if not output_txt_path: return "".join(all_text)
 
@@ -118,7 +118,7 @@ def summarize_deposition_text(text):
     response = chain.invoke({"input": text, "max_tokens": 52000})
     return response.strip()
 
-def summarize_deposition(text_pages):
+def summarize_deposition(text_pages, id):
     summaries = [] 
 
     for page in text_pages:
@@ -126,12 +126,12 @@ def summarize_deposition(text_pages):
             try:
                 summary = summarize_deposition_text(page)
                 summaries.append(summary)
-                print(f"Processed page of size {len(page)}")
+                print(f"[{id}]: Processed page of size {len(page)}")
             except Exception as e:
-                print(f"Error processing page: {e}")
+                print(f"[{id}]: Error processing page: {e}")
             time.sleep(.01)  # Wait for .01 second between requests
         else:
-            print(f"Skipped page of size {len(page)}")
+            print(f"[{id}]: Skipped page of size {len(page)}")
     return summaries
 
 def create_summary(request, id):
@@ -139,18 +139,18 @@ def create_summary(request, id):
     if not file_path:
         return 0
     # Provide the path to your PDF and the output text file path
-    rawText = extract_text_with_numbers(file_path, None)
+    rawText = extract_text_with_numbers(file_path, None, id)
     l = cb.initBot(rawText, id)
 
     # Split the input text by pages
     text_pages = split_text_by_page(rawText)
 
-    summarizedPages = summarize_deposition(text_pages)
+    # summarizedPages = summarize_deposition(text_pages, id)
 
-    # # # # Write the summaries to the output PDF file
-    write_summaries_to_pdf(summarizedPages, config('OUTPUT_FILE_PATH'))
-    # write_summaries_to_pdf(text_pages[0], f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+    # Write the summaries to the output PDF file
+    # write_summaries_to_pdf(summarizedPages, f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+    write_summaries_to_pdf(text_pages[0], f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
 
-    print("Summary saved to:", "output.pdf")
+    print(f"[{id}]: Summary saved to:", f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
     return l
 

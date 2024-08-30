@@ -10,18 +10,21 @@ from threading import Thread
 #ssummarizes input and sets up chatbot
 @csrf_exempt
 def summarize(request):
+	if not request.session.session_key:
+		request.session.save()
+	id = request.session.session_key
 	#check if summary already started
 	try:
-		if request.session['init'] and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf"):
+		if request.session['init'] and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"):
 			return HttpResponse("Summary in progress, please wait.")
 	except: pass
-	json_data = json.loads(request.body)
-	print(json_data)
+	json_data = request.GET #json.loads(request.body)
+	print(f"[{id}]: {json_data}")
 	#clean up previous summaries
-	dirname = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + request.session.session_key + "_OpenAI"
+	dirname = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + id + "_OpenAI"
 	if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
-	if os.path.isfile(f"len_data/{request.session.session_key}"): os.remove(f"len_data/{request.session.session_key}")
+	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+	if os.path.isfile(f"len_data/{id}"): os.remove(f"len_data/{id}")
 	request.session['init'] = True
 	request.session['prompt_append'] = []
 	#start summarizing thread
@@ -29,17 +32,19 @@ def summarize(request):
 		l = create_summary(json_data, id)
 		with open(f"len_data/{id}", 'w') as f:
 			f.write(str(l))
-	t = Thread(target=r,args=[request.session.session_key])
+	t = Thread(target=r,args=[id])
 	t.start()
 	return HttpResponse("Summary started.")
 
 #ask a question to the chatbot, requires summary to have been done first
 @csrf_exempt
 def ask(request):
-	json_data = json.loads(request.body)
-	print(json_data)
-	#check for finished summary
+	if not request.session.session_key:
+		request.session.save()
 	id = request.session.session_key
+	json_data = request.GET #json.loads(request.body)
+	print(f"[{id}]: {json_data}")
+	#check for finished summary
 	if (not request.session.get('init')) or not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): return HttpResponse("No file summarized")
 	with open(f"len_data/{id}", 'r') as f:
 		l = int(f.read())
@@ -50,6 +55,9 @@ def ask(request):
 #debug view to print session in console, remove in production
 @csrf_exempt
 def session(request):
+	if not request.session.session_key:
+		request.session.save()
+	print(request.session.session_key)
 	print(request.session)
 	print(request.session.items())
 	return HttpResponse("done")
@@ -62,14 +70,17 @@ def clear(request):
 	except: pass
 	request.session.clear()
 	if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
+	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
 	if os.path.isfile(f"len_data/{request.session.session_key}"): os.remove(f"len_data/{request.session.session_key}")
 	return HttpResponse("session cleared")
 
 #provides output pdf
 def output(request):
+	if not request.session.session_key:
+		request.session.save()
+	id = request.session.session_key
 	try:
-		print(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
+		print(f"[{id}]: {config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
 		with open(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf", 'rb') as pdf:
 			response = HttpResponse(pdf.read(), content_type='application/pdf')
 			response['Content-Disposition'] = 'filename=some_file.txt'

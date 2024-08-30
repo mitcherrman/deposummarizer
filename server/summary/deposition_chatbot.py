@@ -9,6 +9,7 @@ from langchain_core.runnables import RunnablePassthrough
 from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from decouple import config
+from threading import Lock
 
 LOAD_DB_FROM_FOLDER = True
 DEBUG_MODE = False
@@ -18,24 +19,31 @@ DB_PIECE_SIZE = 1
 model = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'))
 embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPENAI_KEY'))
 
+#thread locks
+db_lock = Lock()
+
 def initBot(fullText, id):
-    print(f"Document length = {len(fullText)} characters")
+    print(f"[{id}]: Document length = {len(fullText)} characters")
     file = open("pdf_text.txt","w+t")
     file.write(fullText)
     file.close()
-    print("Setting up model context...")
+    print(f"[{id}]: Setting up model context...")
     persist_path = f"databases/vectordb_data_{DB_PIECE_SIZE}k_" + id + "_OpenAI"
     split = RecursiveCharacterTextSplitter(chunk_size = DB_PIECE_SIZE*1000, chunk_overlap = DB_PIECE_SIZE*200, add_start_index = True)
     pieces = split.split_text(fullText)
     #loads database from folder if possible, not used in production but helpful when testing to save on api calls
-    if LOAD_DB_FROM_FOLDER and os.path.isdir(persist_path):
-        print("Saved vector database found, loading from file...")
-        vectordb = Chroma(persist_directory=persist_path, embedding_function=embedding)
-    else:
-        print("Saved vector database not found/not allowed, building and saving vector database...")
-        vectordb = Chroma.from_texts(texts=pieces, embedding=embedding, persist_directory=persist_path)
+    db_lock.acquire()
+    try:
+        if LOAD_DB_FROM_FOLDER and os.path.isdir(persist_path):
+            print(f"[{id}]: Saved vector database found, loading from file...")
+            vectordb = Chroma(persist_directory=persist_path, embedding_function=embedding)
+        else:
+            print(f"[{id}]: Saved vector database not found/not allowed, building and saving vector database...")
+            vectordb = Chroma.from_texts(texts=pieces, embedding=embedding, persist_directory=persist_path)
+    finally:
+        db_lock.release()
     l = len(pieces)
-    print("Context creation finished.")
+    print(f"[{id}]: Context creation finished.")
     return l
 
 def combine_text(msgs):
@@ -49,7 +57,7 @@ def askQuestion(question, id, prompt_append, l):
     retriever = vectordb.as_retriever(search_type="similarity",search_kwargs={"k":max(6,int(l/32))}) #play with this number
     #set up context
     context = combine_text(retriever.invoke(question))
-    print(f"Context length = {len(context)} characters")
+    print(f"[{id}]: Context length = {len(context)} characters")
     #set up prompt (derived from https://smith.langchain.com/hub/rlm/rag-prompt)
     prompt = [
         {"role":"system","content":f"You are an assistant for question-answering tasks. Use the following exerpts from a court deposition to answer the user's question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise. Include the exact quote(s) you got the answer from.\nExerpt: {context}"},
