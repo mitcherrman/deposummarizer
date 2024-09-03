@@ -1,31 +1,32 @@
-from django.http import HttpResponse, HttpResponseNotFound
+from django.http import HttpResponse, HttpResponseNotFound, HttpResponseNotAllowed
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from server.summary.summarizer import create_summary
 from server.summary.deposition_chatbot import askQuestion
 import shutil, os
-from server.summary.deposition_chatbot import DB_PIECE_SIZE
 from decouple import config
 from threading import Thread
 
 #ssummarizes input and sets up chatbot
 @csrf_exempt
 def summarize(request):
+	if request.method != 'POST':
+		return HttpResponseNotAllowed(['POST'])
 	if not request.session.session_key:
 		request.session.save()
 	id = request.session.session_key
 	#check if summary already started
 	try:
-		if request.session['db_len'] == -1 and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"):
-			return HttpResponse("Summary in progress, please wait.")
+		if request.session['db_len'] == -1 and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{id}.pdf"):
+			return HttpResponse("Summary in progress, please wait.", status=409)
 	except: pass
-	json_data = request.GET #json.loads(request.body)
+	json_data = request.GET
 	print(f"[{id}]: {json_data}")
 	#clean up previous summaries
 	dirname = settings.CHROMA_URL + id
 	if not settings.TEST_WITHOUT_AI:
 		if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{id}.pdf")
+	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/{id}.pdf")
 	request.session['db_len'] = -1
 	request.session['prompt_append'] = []
 	#start summarizing thread
@@ -40,13 +41,15 @@ def summarize(request):
 #ask a question to the chatbot, requires summary to have been done first
 @csrf_exempt
 def ask(request):
+	if request.method != 'POST':
+		return HttpResponseNotAllowed(['POST'])
 	if not request.session.session_key:
 		request.session.save()
 	id = request.session.session_key
-	json_data = request.GET #json.loads(request.body)
+	json_data = request.GET
 	print(f"[{id}]: {json_data}")
 	#check for finished summary
-	if (not request.session.get('db_len')) or request.session['db_len'] <= 0: return HttpResponse("No file summarized")
+	if (not request.session.get('db_len')) or request.session['db_len'] <= 0: return HttpResponse("No file summarized", status=409)
 	response = askQuestion(json_data.get('question', False), id, request.session['prompt_append'], request.session['db_len'])
 	request.session['prompt_append'] = response[1]
 	return HttpResponse(response[0])
@@ -56,6 +59,8 @@ def ask(request):
 def session(request):
 	if not settings.DEBUG:
 		return HttpResponseNotFound()
+	if request.method != 'POST':
+		return HttpResponseNotAllowed(['POST'])
 	if not request.session.session_key:
 		request.session.save()
 	print(request.session.session_key)
@@ -68,12 +73,16 @@ def session(request):
 def cyclekey(request):
 	if not settings.DEBUG:
 		return HttpResponseNotFound()
+	if request.method != 'POST':
+		return HttpResponseNotAllowed(['POST'])
 	request.session.cycle_key()
 	return HttpResponse("done")
 
 #clears session/associated files
 @csrf_exempt
 def clear(request):
+	if request.method != 'POST':
+		return HttpResponseNotAllowed(['POST'])
 	try:
 		dirname = settings.CHROMA_URL + request.session.session_key
 	except: pass
@@ -81,7 +90,10 @@ def clear(request):
 	return HttpResponse("session cleared")
 
 #provides output pdf
+@csrf_exempt
 def output(request):
+	if request.method != 'POST':
+		return HttpResponseNotAllowed(['POST'])
 	if not request.session.session_key:
 		request.session.save()
 	id = request.session.session_key
@@ -94,12 +106,12 @@ def output(request):
 	except FileNotFoundError:
 		try:
 			#check for summary in progress
-			if request.session.get['db_len'] == -1:
-				return HttpResponse("Working on it")
+			if request.session['db_len'] == -1:
+				return HttpResponse("Working on it", status=409)
 			#summarize returns 0 if the path isn't given in request body
-			elif (request.session.get['db_len'] == 0):
-				return HttpResponse("Error during summary: does the file path exist?")
+			elif (request.session['db_len'] == 0):
+				return HttpResponse("Error during summary: does the file path exist?", status=409)
 			else:
-				return HttpResponse("Unknown error")
+				return HttpResponse("Unknown error", status=500)
 		except KeyError:
-			return HttpResponse("No input file found, summarize using the /summarize view")
+			return HttpResponse("No input file found, summarize using the /summarize view", status=409)
