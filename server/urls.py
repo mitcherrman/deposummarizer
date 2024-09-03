@@ -24,5 +24,6 @@ urlpatterns = [
     path('output', views.output, name='output'),
     path('clear', views.clear, name='clear'),
     path('session', views.session, name='session'),
+    path('cyclekey', views.cyclekey, name='cyclekey'),
     path('ask', views.ask, name='ask')
 ]

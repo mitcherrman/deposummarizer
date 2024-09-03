@@ -63,6 +63,14 @@ def session(request):
 	print(request.session.items())
 	return HttpResponse("done")
 
+#debug view to cycle session key, remove in production
+@csrf_exempt
+def cyclekey(request):
+	if not settings.DEBUG:
+		return HttpResponseNotFound()
+	request.session.cycle_key()
+	return HttpResponse("done")
+
 #clears session/associated files
 @csrf_exempt
 def clear(request):
@@ -70,8 +78,6 @@ def clear(request):
 		dirname = settings.CHROMA_URL + request.session.session_key
 	except: pass
 	request.session.clear()
-	if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/output_{request.session.session_key}.pdf")
 	return HttpResponse("session cleared")
 
 #provides output pdf
@@ -80,8 +86,8 @@ def output(request):
 		request.session.save()
 	id = request.session.session_key
 	try:
-		print(f"[{id}]: {config('OUTPUT_FILE_PATH')}/{request.session.session_key}.pdf")
-		with open(f"{config('OUTPUT_FILE_PATH')}/{request.session.session_key}.pdf", 'rb') as pdf:
+		print(f"[{id}]: {config('OUTPUT_FILE_PATH')}/{id}.pdf")
+		with open(f"{config('OUTPUT_FILE_PATH')}/{id}.pdf", 'rb') as pdf:
 			response = HttpResponse(pdf.read(), content_type='application/pdf')
 			response['Content-Disposition'] = 'filename=some_file.txt'
 			return response
