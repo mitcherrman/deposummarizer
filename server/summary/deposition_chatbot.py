@@ -21,15 +21,15 @@ model = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_M
 embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPENAI_KEY'))
 
 #thread locks
-db_lock = Lock()
+db_lock = Lock() #used to access chroma databsase
 
 def initBot(fullText, id):
     print(f"[{id}]: Document length = {len(fullText)} characters")
-    file = open("pdf_text.txt","w+t")
-    file.write(fullText)
-    file.close()
+    with open("pdf_text.txt","w+t") as file:
+        file.write(fullText)
     print(f"[{id}]: Setting up model context...")
     persist_path = settings.CHROMA_URL + id
+    #split text into chunks
     split = RecursiveCharacterTextSplitter(chunk_size = DB_PIECE_SIZE*1000, chunk_overlap = DB_PIECE_SIZE*200, add_start_index = True)
     pieces = split.split_text(fullText)
     #loads database from folder if possible, not used in production but helpful when testing to save on api calls

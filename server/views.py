@@ -20,8 +20,8 @@ def summarize(request):
 		if request.session['db_len'] == -1 and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{id}.pdf"):
 			return HttpResponse("Summary in progress, please wait.", status=409)
 	except: pass
-	json_data = request.GET
-	print(f"[{id}]: {json_data}")
+	data = request.GET
+	print(f"[{id}]: {data}")
 	#clean up previous summaries
 	dirname = settings.CHROMA_URL + id
 	if not settings.TEST_WITHOUT_AI:
@@ -31,7 +31,7 @@ def summarize(request):
 	request.session['prompt_append'] = []
 	#start summarizing thread
 	def r(id):
-		l = create_summary(json_data, id)
+		l = create_summary(data, id)
 		request.session['db_len'] = l
 		request.session.save()
 	t = Thread(target=r,args=[id])
@@ -46,15 +46,15 @@ def ask(request):
 	if not request.session.session_key:
 		request.session.save()
 	id = request.session.session_key
-	json_data = request.GET
-	print(f"[{id}]: {json_data}")
+	data = request.GET
+	print(f"[{id}]: {data}")
 	#check for finished summary
 	if (not request.session.get('db_len')) or request.session['db_len'] <= 0: return HttpResponse("No file summarized", status=409)
-	response = askQuestion(json_data.get('question', False), id, request.session['prompt_append'], request.session['db_len'])
+	response = askQuestion(data.get('question', False), id, request.session['prompt_append'], request.session['db_len'])
 	request.session['prompt_append'] = response[1]
 	return HttpResponse(response[0])
 
-#debug view to print session in console, remove in production
+#debug view to print session in console, returns 404 in production
 @csrf_exempt
 def session(request):
 	if not settings.DEBUG:
@@ -68,7 +68,7 @@ def session(request):
 	print(request.session.items())
 	return HttpResponse("done")
 
-#debug view to cycle session key, remove in production
+#debug view to cycle session key, returns 404 in production
 @csrf_exempt
 def cyclekey(request):
 	if not settings.DEBUG:
@@ -83,9 +83,6 @@ def cyclekey(request):
 def clear(request):
 	if request.method != 'POST':
 		return HttpResponseNotAllowed(['POST'])
-	try:
-		dirname = settings.CHROMA_URL + request.session.session_key
-	except: pass
 	request.session.clear()
 	return HttpResponse("session cleared")
 
@@ -98,6 +95,7 @@ def output(request):
 		request.session.save()
 	id = request.session.session_key
 	try:
+		#open summary file
 		print(f"[{id}]: {config('OUTPUT_FILE_PATH')}/{id}.pdf")
 		with open(f"{config('OUTPUT_FILE_PATH')}/{id}.pdf", 'rb') as pdf:
 			response = HttpResponse(pdf.read(), content_type='application/pdf')

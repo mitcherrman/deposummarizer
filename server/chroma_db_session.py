@@ -4,6 +4,9 @@ from decouple import config
 import os, shutil
 
 class SessionStore(Dbss):
+    """
+    A session engine that extends the default database engine functionality by storing chroma databases and summary PDFs in the filesystem.
+    """
 
     def __init__(self, session_key=None):
         super().__init__(session_key)
@@ -57,5 +60,7 @@ class SessionStore(Dbss):
     def clear(self):
         super().clear()
         dirname = settings.CHROMA_URL + self.session_key
-        if os.path.isdir(dirname): shutil.rmtree(dirname)
-        if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{self.session_key}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/{self.session_key}.pdf")
+        if os.path.isdir(dirname):
+            shutil.rmtree(dirname)
+        if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{self.session_key}.pdf"):
+            os.remove(f"{config('OUTPUT_FILE_PATH')}/{self.session_key}.pdf")
