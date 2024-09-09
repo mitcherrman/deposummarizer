@@ -5,9 +5,15 @@ from server.summary.summarizer import create_summary
 from server.summary.deposition_chatbot import askQuestion
 import shutil, os
 from decouple import config
-from threading import Thread
+from threading import Thread, Lock
+from importlib import import_module
 
-#ssummarizes input and sets up chatbot
+session_engine = import_module(settings.SESSION_ENGINE)
+
+#session lock used by thread, should be used by anything else that may modify session during summary process
+session_lock = Lock()
+
+#summarizes input and sets up chatbot
 @csrf_exempt
 def summarize(request):
 	if request.method != 'POST':
@@ -30,10 +36,14 @@ def summarize(request):
 	request.session['db_len'] = -1
 	request.session['prompt_append'] = []
 	#start summarizing thread
-	def r(id):
+	def r(id): #note: session key cannot change during this thread's execution (relevant for authentication if it's implemented)
 		l = create_summary(data, id)
-		request.session['db_len'] = l
-		request.session.save()
+		request.session['db_len'] = l #in case this thread somehow ends before view
+		with session_lock:
+			s = session_engine.SessionStore(id) #is there a cleaner way to do this?
+			if s.exists():
+				s['db_len'] = l
+				s.save()
 	t = Thread(target=r,args=[id])
 	t.start()
 	return HttpResponse("Summary started.")
@@ -89,8 +99,8 @@ def clear(request):
 #provides output pdf
 @csrf_exempt
 def output(request):
-	if request.method != 'POST':
-		return HttpResponseNotAllowed(['POST'])
+	if request.method != 'GET':
+		return HttpResponseNotAllowed(['GET'])
 	if not request.session.session_key:
 		request.session.save()
 	id = request.session.session_key
