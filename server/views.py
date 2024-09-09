@@ -41,7 +41,7 @@ def summarize(request):
 		request.session['db_len'] = l #in case this thread somehow ends before view
 		with session_lock:
 			s = session_engine.SessionStore(id) #is there a cleaner way to do this?
-			if s.exists():
+			if s.exists(id):
 				s['db_len'] = l
 				s.save()
 	t = Thread(target=r,args=[id])
