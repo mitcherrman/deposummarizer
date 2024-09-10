@@ -1,17 +1,35 @@
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from server.summary.summarizer import create_summary
 import json
 from decouple import config
+from django.shortcuts import render
+import os
 
 @csrf_exempt
 def summarize(request):
-	json_data = json.loads(request.body)
-	print(json_data)
-	if not create_summary(json_data):
-		return HttpResponse("Error: no file_path")
-	else:
-		return HttpResponse("Here's the text of the web page.")
+    if request.method == 'POST':
+        uploaded_file = request.FILES.get('file')
+        if not uploaded_file:
+            return HttpResponse("No file uploaded.")
+        
+        # Save the uploaded file temporarily
+        file_path = os.path.join(config('UPLOAD_DIR'), uploaded_file.name)
+        with open(file_path, 'wb+') as destination:
+            for chunk in uploaded_file.chunks():
+                destination.write(chunk)
+        
+        # Process the uploaded file
+        json_data = {
+            "file_path": file_path
+        }
+        
+        if not create_summary(json_data):
+            return HttpResponse("Error processing file.")
+        else:
+            return HttpResponse("File summarized successfully.")
+    
+    return HttpResponse("Invalid request method.")
 
 def output(request, filename=''):
 	if filename == '':
@@ -23,3 +41,6 @@ def output(request, filename=''):
 			return response
 	except FileNotFoundError:
 		return HttpResponse("File ain't ready yet boyo")
+
+def home (request):
+	return render(request, "home.html")

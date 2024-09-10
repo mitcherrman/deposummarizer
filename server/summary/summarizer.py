@@ -15,7 +15,7 @@ llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MOD
 
 # Define a prompt template for better input to the LLM
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "The input is a legal deposition. Summarize into brief key points without adhering to grammatical rules. Present all in the same line with minimal separation."),
+    ("system", "The input is a legal deposition. Summarize into brief key points without adhering to grammatical rules. Only include the bare minimum amount of information."),
     ("user", "{input}")
 ])
 
@@ -87,8 +87,8 @@ def write_summaries_to_pdf(summaries, output_path):
         name='Page',
         parent=styles['Normal'],
         fontSize=14,
-        leading=18,
-        spaceAfter=12,
+        leading=12,
+        spaceAfter=11,
         textColor='black',
         bold=True
     )
@@ -96,8 +96,8 @@ def write_summaries_to_pdf(summaries, output_path):
         name='Summary',
         parent=styles['Normal'],
         fontSize=12,
-        leading=15,
-        spaceAfter=12,
+        leading=12,
+        spaceAfter=11,
         textColor='black'
     )
 
@@ -107,7 +107,7 @@ def write_summaries_to_pdf(summaries, output_path):
         page_text = f"Page {page_num}"
         story.append(Paragraph(page_text, page_style))
         story.append(Paragraph(summary, summary_style))
-        story.append(Spacer(1, 12))  # Add some space between summaries
+        story.append(Spacer(1, 10))  # Add some space between summaries
 
     doc.build(story)
     pdf_file.seek(0)
@@ -126,10 +126,8 @@ def summarize_deposition(text_pages):
             try:
                 summary = summarize_deposition_text(page)
                 summaries.append(summary)
-                print(f"Processed page of size {len(page)}")
             except Exception as e:
                 print(f"Error processing page: {e}")
-            time.sleep(.01)  # Wait for .01 second between requests
         else:
             print(f"Skipped page of size {len(page)}")
     return summaries

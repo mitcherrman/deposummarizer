@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %} Home Page {% endblock %}
+
+{% block content %}
+<div class="container">
+    <h1>Upload a File for Summarization</h1>
+    <form method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="fileInput">Choose a file:</label>
+            <input type="file" class="form-control" id="fileInput" name="file" required>
+        </div>
+        <button type="submit" class="btn btn-primary" id="btn clicked" onclick="document.getElementById('btn clicked').setAttribute('disabled', ''); document.getElementById('form').submit()">Summarize</button>
+    </form>
+</div>
+{% endblock %}
