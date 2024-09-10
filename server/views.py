@@ -1,10 +1,9 @@
-from django.http import HttpResponse, HttpResponseNotFound, HttpResponseNotAllowed
+from django.http import HttpResponse, HttpResponseNotFound, HttpResponseNotAllowed, HttpResponseServerError
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from server.summary.summarizer import create_summary
 from server.summary.deposition_chatbot import askQuestion
 import shutil, os
-from decouple import config
 from threading import Thread, Lock
 from importlib import import_module
 
@@ -23,7 +22,7 @@ def summarize(request):
 	id = request.session.session_key
 	#check if summary already started
 	try:
-		if request.session['db_len'] == -1 and not os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{id}.pdf"):
+		if request.session['db_len'] == -1 and not os.path.isfile(f"{settings.SUMMARY_URL}{id}.pdf"):
 			return HttpResponse("Summary in progress, please wait.", status=409)
 	except: pass
 	data = request.GET
@@ -32,7 +31,7 @@ def summarize(request):
 	dirname = settings.CHROMA_URL + id
 	if not settings.TEST_WITHOUT_AI:
 		if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{id}.pdf"): os.remove(f"{config('OUTPUT_FILE_PATH')}/{id}.pdf")
+	if os.path.isfile(f"{settings.SUMMARY_URL}{id}.pdf"): os.remove(f"{settings.SUMMARY_URL}{id}.pdf")
 	request.session['db_len'] = -1
 	request.session['prompt_append'] = []
 	#start summarizing thread
@@ -61,6 +60,8 @@ def ask(request):
 	#check for finished summary
 	if (not request.session.get('db_len')) or request.session['db_len'] <= 0: return HttpResponse("No file summarized", status=409)
 	response = askQuestion(data.get('question', False), id, request.session['prompt_append'], request.session['db_len'])
+	if response == None:
+		return HttpResponseServerError("Something went wrong with the OpenAI call, please try again later.")
 	request.session['prompt_append'] = response[1]
 	return HttpResponse(response[0])
 
@@ -106,8 +107,8 @@ def output(request):
 	id = request.session.session_key
 	try:
 		#open summary file
-		print(f"[{id}]: {config('OUTPUT_FILE_PATH')}/{id}.pdf")
-		with open(f"{config('OUTPUT_FILE_PATH')}/{id}.pdf", 'rb') as pdf:
+		print(f"[{id}]: {settings.SUMMARY_URL}{id}.pdf")
+		with open(f"{settings.SUMMARY_URL}{id}.pdf", 'rb') as pdf:
 			response = HttpResponse(pdf.read(), content_type='application/pdf')
 			response['Content-Disposition'] = 'filename=some_file.txt'
 			return response

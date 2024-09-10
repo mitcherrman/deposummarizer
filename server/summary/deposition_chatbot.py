@@ -64,7 +64,10 @@ def askQuestion(question, id, prompt_append, l):
     prompt.append(
         {"role":"user","content":question}
     )
-    result = model.invoke(prompt)
+    try:
+        result = model.invoke(prompt)
+    except:
+        return None
     parsed_result = result.content
     prompt_append.extend([
         {"role":"user","content":question},

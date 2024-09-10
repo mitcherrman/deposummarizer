@@ -42,8 +42,8 @@ class SessionStore(Dbss):
             super().delete(key)
         if os.path.isdir(settings.CHROMA_URL + key):
             os.rename(settings.CHROMA_URL + key, settings.CHROMA_URL + self.session_key)
-        if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{key}.pdf"):
-            os.rename(f"{config('OUTPUT_FILE_PATH')}/{key}.pdf", f"{config('OUTPUT_FILE_PATH')}/{self.session_key}.pdf")
+        if os.path.isfile(f"{settings.SUMMARY_URL}{key}.pdf"):
+            os.rename(f"{settings.SUMMARY_URL}{key}.pdf", f"{settings.SUMMARY_URL}{self.session_key}.pdf")
 
     async def acycle_key(self):
         data = await self._aget_session()
@@ -54,13 +54,13 @@ class SessionStore(Dbss):
             await super().adelete(key)
         if os.path.isdir(settings.CHROMA_URL + key):
             os.rename(settings.CHROMA_URL + key, settings.CHROMA_URL + self.session_key)
-        if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{key}.pdf"):
-            os.rename(f"{config('OUTPUT_FILE_PATH')}/{key}.pdf", f"{config('OUTPUT_FILE_PATH')}/{self.session_key}.pdf")
+        if os.path.isfile(f"{settings.SUMMARY_URL}{key}.pdf"):
+            os.rename(f"{settings.SUMMARY_URL}{key}.pdf", f"{settings.SUMMARY_URL}{self.session_key}.pdf")
     
     def clear(self):
         super().clear()
         dirname = settings.CHROMA_URL + self.session_key
         if os.path.isdir(dirname):
             shutil.rmtree(dirname)
-        if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{self.session_key}.pdf"):
-            os.remove(f"{config('OUTPUT_FILE_PATH')}/{self.session_key}.pdf")
+        if os.path.isfile(f"{settings.SUMMARY_URL}{self.session_key}.pdf"):
+            os.remove(f"{settings.SUMMARY_URL}{self.session_key}.pdf")
