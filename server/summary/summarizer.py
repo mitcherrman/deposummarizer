@@ -9,6 +9,8 @@ from langchain_core.output_parsers import StrOutputParser
 from decouple import config
 import io
 import os
+import server.summary.deposition_chatbot as cb
+from django.conf import settings
 
 # Initialize Langchain OpenAI model
 llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'))  # Use a secure method to handle your API key
@@ -25,7 +27,7 @@ output_parser = StrOutputParser()
 # Combine prompt, LLM, and output parser into a chain
 chain = prompt | llm | output_parser
 
-def extract_text_with_numbers(pdf_path, output_txt_path):
+def extract_text_with_numbers(pdf_path, output_txt_path, id):
     # Open the PDF
     doc = fitz.open(pdf_path)
     all_text = []
@@ -56,9 +58,9 @@ def extract_text_with_numbers(pdf_path, output_txt_path):
             all_text.append(f"Page {page_num + 1}")
             all_text.append(filtered_text)
             all_text.append("")  # Add a space between pages for readability
-            print(f"Processed page {page_num + 1} of size {len(filtered_text)}")
+            print(f"[{id}]: Processed page {page_num + 1} of size {len(filtered_text)}")
         else:
-            print(f"Skipped page {page_num + 1} of size {len(filtered_text)}")
+            print(f"[{id}]: Skipped page {page_num + 1} of size {len(filtered_text)}")
 
     if not output_txt_path: return "".join(all_text)
 
@@ -118,7 +120,7 @@ def summarize_deposition_text(text):
     response = chain.invoke({"input": text, "max_tokens": 52000})
     return response.strip()
 
-def summarize_deposition(text_pages):
+def summarize_deposition(text_pages, id):
     summaries = [] 
 
     for page in text_pages:
@@ -129,10 +131,10 @@ def summarize_deposition(text_pages):
             except Exception as e:
                 print(f"Error processing page: {e}")
         else:
-            print(f"Skipped page of size {len(page)}")
+            print(f"[{id}]: Skipped page of size {len(page)}")
     return summaries
 
-def create_summary(request):
+def create_summary(request, id):
     file_path = request.get('file_path', False)
     if not file_path:
         return 
@@ -142,16 +144,19 @@ def create_summary(request):
     print("input filename is " + filename)
 
     # Provide the path to your PDF and the output text file path
-    rawText = extract_text_with_numbers(file_path, None)
+    rawText = extract_text_with_numbers(file_path, None, id)
+    l = cb.initBot(rawText, id)
 
     # Split the input text by pages
     text_pages = split_text_by_page(rawText)
+    if not settings.TEST_WITHOUT_AI:
+        summarizedPages = summarize_deposition(text_pages, id)
 
-    summarizedPages = summarize_deposition(text_pages)
+        # Write the summaries to the output PDF file
+        write_summaries_to_pdf(summarizedPages, f"{settings.SUMMARY_URL}{id}.pdf")
+    else:
+        write_summaries_to_pdf(text_pages[0], f"{settings.SUMMARY_URL}{id}.pdf")
 
-    # Write the summaries to the output PDF file
-    write_summaries_to_pdf(summarizedPages, config('OUTPUT_FILE_PATH') + filename)
-
-    print("Summary saved to:", filename)
-    return True
+    print(f"[{id}]: Summary saved to:", f"{settings.SUMMARY_URL}{id}.pdf")
+    return l
 
