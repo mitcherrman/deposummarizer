@@ -1,22 +1,16 @@
-<<<<<<< HEAD
-from django.http import HttpResponse, JsonResponse
-=======
 from django.http import HttpResponse, HttpResponseNotFound, HttpResponseNotAllowed, HttpResponseServerError
->>>>>>> origin/chatbot_integration
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 from server.summary.summarizer import create_summary
-<<<<<<< HEAD
-import json
-from decouple import config
-from django.shortcuts import render
-import os
-=======
 from server.summary.deposition_chatbot import askQuestion
 import shutil, os
 from threading import Thread, Lock
 from importlib import import_module
->>>>>>> origin/chatbot_integration
+import json
+from decouple import config
+from django.shortcuts import render
+import os
+
 
 session_engine = import_module(settings.SESSION_ENGINE)
 
@@ -26,36 +20,6 @@ session_lock = Lock()
 #summarizes input and sets up chatbot
 @csrf_exempt
 def summarize(request):
-<<<<<<< HEAD
-    if request.method == 'POST':
-        uploaded_file = request.FILES.get('file')
-        if not uploaded_file:
-            return HttpResponse("No file uploaded.")
-        
-        # Save the uploaded file temporarily
-        file_path = os.path.join(config('UPLOAD_DIR'), uploaded_file.name)
-        with open(file_path, 'wb+') as destination:
-            for chunk in uploaded_file.chunks():
-                destination.write(chunk)
-        
-        # Process the uploaded file
-        json_data = {
-            "file_path": file_path
-        }
-        
-        if not create_summary(json_data):
-            return HttpResponse("Error processing file.")
-        else:
-            return HttpResponse("File summarized successfully.")
-    
-    return HttpResponse("Invalid request method.")
-
-def output(request, filename=''):
-	if filename == '':
-		return HttpResponse("Give me a real file name bruv")
-	try:
-		with open(config('OUTPUT_FILE_PATH') + filename, 'rb') as pdf:
-=======
 	if request.method != 'POST':
 		return HttpResponseNotAllowed(['POST'])
 	if not request.session.session_key:
@@ -150,17 +114,10 @@ def output(request):
 		#open summary file
 		print(f"[{id}]: {settings.SUMMARY_URL}{id}.pdf")
 		with open(f"{settings.SUMMARY_URL}{id}.pdf", 'rb') as pdf:
->>>>>>> origin/chatbot_integration
 			response = HttpResponse(pdf.read(), content_type='application/pdf')
 			response['Content-Disposition'] = 'filename=some_file.txt'
 			return response
 	except FileNotFoundError:
-<<<<<<< HEAD
-		return HttpResponse("File ain't ready yet boyo")
-
-def home (request):
-	return render(request, "home.html")
-=======
 		try:
 			#check for summary in progress
 			if request.session['db_len'] == -1:
@@ -172,4 +129,3 @@ def home (request):
 				return HttpResponse("Unknown error", status=500)
 		except KeyError:
 			return HttpResponse("No input file found, summarize using the /summarize view", status=409)
->>>>>>> origin/chatbot_integration
