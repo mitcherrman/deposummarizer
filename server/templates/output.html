@@ -2,3 +2,15 @@
 
 {% block title %} The Output {% endblock %}
 {% block content %}
+<!-- WORK IN PROGRESS-->
+<iframe src="/out" style="position:relative">
+    
+</iframe>
+<script>
+    frame = document.querySelector("iframe");
+    w = window.screen.width;
+    h = window.screen.height;
+    frame.style.setProperty('width', 3*w/4 + "px");
+    frame.style.setProperty('height', w/2 + "px");
+</script>
+{% endblock %}

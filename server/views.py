@@ -11,11 +11,12 @@ from decouple import config
 from django.shortcuts import render
 import os
 
-
 session_engine = import_module(settings.SESSION_ENGINE)
 
 #session lock used by thread, should be used by anything else that may modify session during summary process
 session_lock = Lock()
+
+# --- backend views ---
 
 #summarizes input and sets up chatbot
 @csrf_exempt
@@ -114,7 +115,7 @@ def clear(request):
 
 #provides output pdf
 @csrf_exempt
-def output(request):
+def out(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
 	if not request.session.session_key:
@@ -133,15 +134,24 @@ def output(request):
 			if request.session['db_len'] == -1:
 				return HttpResponse("Working on it", status=409)
 			#summarize returns 0 if the path isn't given in request body
-			elif (request.session['db_len'] == 0):
+			elif request.session['db_len'] == 0:
 				return HttpResponseBadRequest("Malformed body, should be formatted in JSON with a value for the \"file_path\" key")
 			#returns -2 if there was some error in the initial pdf processing (probably file not found)
-			if request.session['db_len'] == -2:
+			elif request.session['db_len'] == -2:
 				return HttpResponseServerError("Summary file did not save properly")
 			else:
 				return HttpResponseServerError("Unknown error")
 		except KeyError:
 			return HttpResponse("No input file found, summarize using the /summarize view", status=409)
+
+# --- template views ---
 		
-def home (request):
+def home(request):
+	if request.method != 'GET':
+		return HttpResponseNotAllowed(['GET'])
 	return render(request, "home.html")
+
+def output(request):
+	if request.method != 'GET':
+		return HttpResponseNotAllowed(['GET'])
+	return render(request, "output.html")

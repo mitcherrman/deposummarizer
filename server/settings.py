@@ -129,3 +129,5 @@ CHROMA_URL = 'databases/' #path to store chroma vector databases
 SUMMARY_URL = 'summaries/' #path to store chroma vector databases
 
 SESSION_ENGINE = 'server.chroma_db_session'
+
+X_FRAME_OPTIONS = 'SAMEORIGIN'

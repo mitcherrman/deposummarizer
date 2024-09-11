@@ -5,7 +5,7 @@
 {% block content %}
 <div class="container">
     <h1>Upload a File for Summarization</h1>
-    <form method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
+    <form target=_blank method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
         {% csrf_token %}
         <div class="form-group">
             <label for="fileInput">Choose a file:</label>
