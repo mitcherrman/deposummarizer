@@ -129,3 +129,6 @@ def output(request):
 				return HttpResponse("Unknown error", status=500)
 		except KeyError:
 			return HttpResponse("No input file found, summarize using the /summarize view", status=409)
+		
+def home (request):
+	return render(request, "home.html")
