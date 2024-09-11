@@ -135,6 +135,9 @@ def output(request):
 			#summarize returns 0 if the path isn't given in request body
 			elif (request.session['db_len'] == 0):
 				return HttpResponseBadRequest("Malformed body, should be formatted in JSON with a value for the \"file_path\" key")
+			#returns -2 if there was some error in the initial pdf processing (probably file not found)
+			if request.session['db_len'] == -2:
+				return HttpResponseServerError("Summary file did not save properly")
 			else:
 				return HttpResponseServerError("Unknown error")
 		except KeyError:

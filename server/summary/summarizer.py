@@ -137,14 +137,17 @@ def summarize_deposition(text_pages, id):
 def create_summary(request, id):
     file_path = request.get('file_path', False)
     if not file_path:
-        return 
+        return 0
     
     # grab the file name
     filename = os.path.basename(file_path)
     print("input filename is " + filename)
 
     # Provide the path to your PDF and the output text file path
-    rawText = extract_text_with_numbers(file_path, None, id)
+    try:
+        rawText = extract_text_with_numbers(file_path, None, id)
+    except FileNotFoundError:
+        return -2
     l = cb.initBot(rawText, id)
 
     # Split the input text by pages
