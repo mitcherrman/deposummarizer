@@ -150,6 +150,16 @@ def home(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
 	return render(request, "home.html")
+		
+def about(request):
+	if request.method != 'GET':
+		return HttpResponseNotAllowed(['GET'])
+	return render(request, "about.html")
+		
+def contact(request):
+	if request.method != 'GET':
+		return HttpResponseNotAllowed(['GET'])
+	return render(request, "contact.html")
 
 def output(request):
 	if request.method != 'GET':
