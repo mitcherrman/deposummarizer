@@ -4,57 +4,37 @@
 {% block title %} Home Page {% endblock %}
 
 {% block content %}
-<div class="container">
-    <h1>Upload a PDF of your deposition to Deposum</h1>
-    <form method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
-        {% csrf_token %}
-        <div class="form-group">
-            <label for="fileInput">Choose a file:</label>
-            <input type="file" class="form-control" id="fileInput" name="file" required>
-        </div>
-        <button type="submit" class="btn btn-primary" id="btnClicked" onsubmit="return validateForm()">Summarize</button>
-    </form>
-
-    <!-- Loading message -->
-    <div id="loading" style="display:none; margin-top: 10px;">
-        Processing... <img src="{% static '/images/loading.gif' %}" alt="Loading..." style="width: 50px; height: 50px;">
+<script src="{% static 'javascript/base.js' %}"></script>
+<h1>Upload a PDF of your deposition to Deposum</h1>
+<form method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="fileInput">Choose a file:</label>
+        <input type="file" class="form-control" id="fileInput" name="file" required>
     </div>
+    <button type="submit" class="btn btn-primary" id="btnClicked" onsubmit="return validateForm()">Summarize</button>
+</form>
 
-    <!-- textarea -->
-    <div class="form-group" style="margin-top: 100px;">
-        <label for="chatbot1">Chatbot pending...</label>
-        <textarea id="chatbot1" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
-    </div>
-
-    <!--  textarea -->
-    <div class="form-group" style="margin-top: 20px;">
-        <label for="chatbot2">Chatbot pending...</label>
-        <textarea id="chatbot2" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
-    </div>
-    
-    <!--  textarea -->
-    <div class="form-group" style="margin-top: 20px;">
-        <label for="chatbot3">Chatbot pending...</label>
-        <textarea id="chatbot3" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
-    </div>
-    
-
+<!-- Loading message -->
+<div id="loading" style="display:none; margin-top: 10px;">
+    Processing... <img src="{% static '/images/loading.gif' %}" alt="Loading..." style="width: 50px; height: 50px;">
 </div>
 
-<script>
-  function validateForm() {
-    var fileInput = document.getElementById('fileInput');
-    if (!fileInput.value) {
-      alert("Please select a file to upload.");
-      return false;
-    }
+<!-- textarea -->
+<div class="form-group" style="margin-top: 100px;">
+    <label for="chatbot1">Chatbot pending...</label>
+    <textarea id="chatbot1" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
+</div>
 
-    // Show the loading message and disable the submit button
-    document.getElementById('btnClicked').setAttribute('disabled', 'disabled');
-    document.getElementById('loading').style.display = 'block';
-    
-    // Submit the form
-    return true;
-  }
-</script>
+<!--  textarea -->
+<div class="form-group" style="margin-top: 20px;">
+    <label for="chatbot2">Chatbot pending...</label>
+    <textarea id="chatbot2" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
+</div>
+
+<!--  textarea -->
+<div class="form-group" style="margin-top: 20px;">
+    <label for="chatbot3">Chatbot pending...</label>
+    <textarea id="chatbot3" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
+</div>
 {% endblock %}
