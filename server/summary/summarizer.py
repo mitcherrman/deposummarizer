@@ -135,7 +135,7 @@ def summarize_deposition(text_pages, id):
     return summaries
 
 def create_summary(request, id):
-    file_path = request.get('file_path', False)
+    file_path = request
     if not file_path:
         return 0
     

@@ -10,71 +10,7 @@
     </title>
     {% load static %} <!-- Load static files -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"/>
-    <style>
-      /* General background styling */
-      body {
-        background-color: #f4e2d8; /* Light brown/tan background */
-        color: #5c4033; /* Dark brown text color for general readability */
-        font-family: 'Georgia', serif; /* Classic serif font for a law-themed look */
-      }
-
-      /* Navbar styling */
-      .navbar {
-        background-color: #8B4513; /* SaddleBrown color for the navbar */
-        color: #fff; /* White text for contrast */
-      }
-
-      .navbar-brand, .nav-link {
-        color: #fff !important; /* White text for the links */
-      }
-
-      .navbar-brand:hover, .nav-link:hover {
-        color: #D2B48C !important; /* Tan color on hover for contrast */
-      }
-
-      /* Content area */
-      .container {
-        background-color: #FAF0E6; /* Light Linen color for the content area */
-        padding: 20px;
-        border-radius: 10px;
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      }
-
-      /* Button styling */
-      #goToTopBtn {
-        position: fixed;
-        bottom: 20px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 99;
-        font-size: 18px;
-        background-color: #8B4513; /* SaddleBrown */
-        color: white;
-        border: none;
-        outline: none;
-        cursor: pointer;
-        padding: 10px 15px;
-        border-radius: 50px;
-        display: block; /* Always visible */
-      }
-
-      #goToTopBtn:hover {
-        background-color: #5c4033; /* Darker brown for hover */
-      }
-
-      /* Customize headings */
-      h1, h2, h3 {
-        color: #5c4033; /* Darker brown for headings */
-      }
-
-      /* Optional background pattern for a more sophisticated feel */
-      body {
-        background-image: url("{% static 'images/background-pattern.png' %}"); /* Example background pattern image */
-        background-size: cover;
-        background-repeat: no-repeat;
-        background-position: center;
-      }
-    </style>
+    <link rel="stylesheet" href="{% static '/styles/base.css' %}"/>
   </head>
   <body>
     <nav class="navbar navbar-expand-lg navbar-light">

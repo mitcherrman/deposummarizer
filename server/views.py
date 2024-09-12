@@ -31,23 +31,26 @@ def summarize(request):
 		if request.session['db_len'] == -1 and not os.path.isfile(f"{settings.SUMMARY_URL}{id}.pdf"):
 			return HttpResponse("Summary in progress, please wait.", status=409)
 	except: pass
-	try:
-		data = json.loads(request.body)
-	except:
-		return HttpResponseBadRequest("Malformed body, should be formatted in JSON with a value for the \"file_path\" key")
-	if not data.get('file_path'):
-		return HttpResponseBadRequest("Malformed body, should be formatted in JSON with a value for the \"file_path\" key")
-	print(f"[{id}]: {data}")
+	if not (request.FILES and request.FILES['file']):
+		HttpResponseBadRequest("Malformed request, should contain a file called \"file\"")
 	#clean up previous summaries
 	dirname = settings.CHROMA_URL + id
 	if not settings.TEST_WITHOUT_AI:
 		if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(f"{settings.SUMMARY_URL}{id}.pdf"): os.remove(f"{settings.SUMMARY_URL}{id}.pdf")
+	if os.path.isfile(f"{settings.SUMMARY_URL}{id}.pdf"):
+		os.remove(f"{settings.SUMMARY_URL}{id}.pdf")
+	if os.path.isfile(f"{settings.DEPO_URL}{id}.pdf"):
+		os.remove(f"{settings.DEPO_URL}{id}.pdf")
+	#write input file to storage
+	file = request.FILES['file']
+	with open(f"{settings.DEPO_URL}{id}.pdf", 'w+b') as loc:
+		for chunk in file.chunks():
+			loc.write(chunk)
 	request.session['db_len'] = -1
 	request.session['prompt_append'] = []
 	#start summarizing thread
 	def r(id): #note: session key cannot change during this thread's execution (relevant for authentication if it's implemented)
-		l = create_summary(data, id)
+		l = create_summary(f"{settings.DEPO_URL}{id}.pdf", id)
 		request.session['db_len'] = l #in case this thread somehow ends before view
 		with session_lock:
 			s = session_engine.SessionStore(id) #is there a cleaner way to do this?

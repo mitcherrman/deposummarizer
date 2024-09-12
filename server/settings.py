@@ -128,6 +128,8 @@ CHROMA_URL = 'databases/' #path to store chroma vector databases
 
 SUMMARY_URL = 'summaries/' #path to store chroma vector databases
 
+DEPO_URL = 'depos/' #path to store submitted depositions
+
 SESSION_ENGINE = 'server.chroma_db_session'
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
