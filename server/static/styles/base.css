@@ -19,6 +19,10 @@ body {
   color: #D2B48C !important; /* Tan color on hover for contrast */
 }
 
+.navbar-toggler:hover {
+  background-color: #ad6735; /* Darker brown for hover */
+}
+
 /* Content area */
 .container {
   background-color: #FAF0E6; /* Light Linen color for the content area */
