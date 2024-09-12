@@ -27,6 +27,7 @@ urlpatterns = [
     path("contact", views.contact, name="contact"),
     path('output', views.output, name='output'),
     path('out', views.out, name='out'),
+    path('out/verify', views.verify, name='verify'),
     path('clear', views.clear, name='clear'),
     path('session', views.session, name='session'),
     path('cyclekey', views.cyclekey, name='cyclekey'),

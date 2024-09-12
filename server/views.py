@@ -33,6 +33,9 @@ def summarize(request):
 	except: pass
 	if not (request.FILES and request.FILES['file']):
 		HttpResponseBadRequest("Malformed request, should contain a file called \"file\"")
+	request.session['db_len'] = -1
+	request.session['prompt_append'] = []
+	request.session.save() #make db_len = -1 visible to other views before clearing files
 	#clean up previous summaries
 	dirname = settings.CHROMA_URL + id
 	if not settings.TEST_WITHOUT_AI:
@@ -46,8 +49,6 @@ def summarize(request):
 	with open(f"{settings.DEPO_URL}{id}.pdf", 'w+b') as loc:
 		for chunk in file.chunks():
 			loc.write(chunk)
-	request.session['db_len'] = -1
-	request.session['prompt_append'] = []
 	#start summarizing thread
 	def r(id): #note: session key cannot change during this thread's execution (relevant for authentication if it's implemented)
 		l = create_summary(f"{settings.DEPO_URL}{id}.pdf", id)
@@ -146,6 +147,14 @@ def out(request):
 				return HttpResponseServerError("Unknown error")
 		except KeyError:
 			return HttpResponse("No input file found, summarize using the /summarize view", status=409)
+
+#efficiently checks if summary is in progress
+def verify(request):
+	if request.method != 'GET':
+		return HttpResponseNotAllowed(['GET'])
+	if request.session and request.session['db_len'] == -1:
+		return HttpResponse("Summary in progress.")
+	return HttpResponse("Summary not in progress.", status=418) #no error code for "task failed successfully"
 
 # --- template views ---
 		
