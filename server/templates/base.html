@@ -8,12 +8,84 @@
         Django App
       {% endblock %}
     </title>
+    {% load static %} <!-- Load static files -->
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css"/>
+    <style>
+      /* General background styling */
+      body {
+        background-color: #f4e2d8; /* Light brown/tan background */
+        color: #5c4033; /* Dark brown text color for general readability */
+        font-family: 'Georgia', serif; /* Classic serif font for a law-themed look */
+      }
+
+      /* Navbar styling */
+      .navbar {
+        background-color: #8B4513; /* SaddleBrown color for the navbar */
+        color: #fff; /* White text for contrast */
+      }
+
+      .navbar-brand, .nav-link {
+        color: #fff !important; /* White text for the links */
+      }
+
+      .navbar-brand:hover, .nav-link:hover {
+        color: #D2B48C !important; /* Tan color on hover for contrast */
+      }
+
+      /* Content area */
+      .container {
+        background-color: #FAF0E6; /* Light Linen color for the content area */
+        padding: 20px;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      }
+
+      /* Button styling */
+      #goToTopBtn {
+        position: fixed;
+        bottom: 20px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 99;
+        font-size: 18px;
+        background-color: #8B4513; /* SaddleBrown */
+        color: white;
+        border: none;
+        outline: none;
+        cursor: pointer;
+        padding: 10px 15px;
+        border-radius: 50px;
+        display: block; /* Always visible */
+      }
+
+      #goToTopBtn:hover {
+        background-color: #5c4033; /* Darker brown for hover */
+      }
+
+      /* Customize headings */
+      h1, h2, h3 {
+        color: #5c4033; /* Darker brown for headings */
+      }
+
+      /* Optional background pattern for a more sophisticated feel */
+      body {
+        background-image: url("{% static 'images/background-pattern.png' %}"); /* Example background pattern image */
+        background-size: cover;
+        background-repeat: no-repeat;
+        background-position: center;
+      }
+    </style>
   </head>
   <body>
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
-      <a class="navbar-brand" href="/home">Summarizer</a>
-      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation"><span class="navbar-toggler-icon"></span></button>
+    <nav class="navbar navbar-expand-lg navbar-light">
+      <!-- Add the logo and brand name -->
+      <a class="navbar-brand" href="/home">
+        <img src="{% static 'images/bearinc.webp' %}" alt="Logo" style="width: 35px; height: 35px; margin-right: 10px;">
+        Deposum
+      </a>
+      <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav">
           <li class="nav-item active">
@@ -28,9 +100,22 @@
         </ul>
       </div>
     </nav>
+
+    <!-- Page Content -->
     <div class="container">{% block content %} {% endblock %}</div>
+
+    <!-- "Go to Top" Button -->
+    <button onclick="topFunction()" id="goToTopBtn" title="Go to Top">↑</button>
+
+    <!-- JavaScript for smooth scroll to top -->
+    <script>
+      // When the user clicks on the button, scroll to the top of the document
+      function topFunction() {
+        window.scrollTo({top: 0, behavior: 'smooth'});
+      }
+    </script>
+
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js" ></script>
   </body>
 </html>
- 

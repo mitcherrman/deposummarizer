@@ -1,7 +1,14 @@
 {% extends "base.html" %}
+{% load static %} <!-- Load static files -->
 
 {% block title %} Contact {% endblock %}
 {% block content %}
 <!-- WORK IN PROGRESS-->
-<h3>Shh, you weren't supposed to click here yet!</h3>
+<h3>
+  <a href="https://www.bearinc.com" target="_blank">
+    Bearinc.com
+    <img src="{% static 'images/bearinc.webp' %}" alt="Bearinc Logo" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 10px;">
+  </a>
+</h3>
+<h3>Developed by Mitchell and Andrei</h3>
 {% endblock %}

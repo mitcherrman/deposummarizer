@@ -5,7 +5,7 @@
 
 {% block content %}
 <div class="container">
-    <h1>Upload a File for Summarization</h1>
+    <h1>Upload a PDF of your deposition to Deposum</h1>
     <form method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
         {% csrf_token %}
         <div class="form-group">
@@ -14,9 +14,31 @@
         </div>
         <button type="submit" class="btn btn-primary" id="btnClicked" onclick="return validateForm()">Summarize</button>
     </form>
+
+    <!-- Loading message -->
     <div id="loading" style="display:none; margin-top: 10px;">
         Processing... <img src="{% static '/images/loading.gif' %}" alt="Loading..." style="width: 50px; height: 50px;">
     </div>
+
+    <!-- textarea -->
+    <div class="form-group" style="margin-top: 100px;">
+        <label for="chatbot1">Chatbot pending...</label>
+        <textarea id="chatbot1" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
+    </div>
+
+    <!--  textarea -->
+    <div class="form-group" style="margin-top: 20px;">
+        <label for="chatbot2">Chatbot pending...</label>
+        <textarea id="chatbot2" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
+    </div>
+    
+    <!--  textarea -->
+    <div class="form-group" style="margin-top: 20px;">
+        <label for="chatbot3">Chatbot pending...</label>
+        <textarea id="chatbot3" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
+    </div>
+    
+
 </div>
 
 <script>
