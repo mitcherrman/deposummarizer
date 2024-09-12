@@ -14,6 +14,7 @@
     <link rel="icon" href="{% static '/images/favicon.ico' %}"/>
   </head>
   <body>
+    <script src="{% static 'javascript/base.js' %}"></script>
     <nav class="navbar navbar-expand-lg navbar-light">
       <!-- Add the logo and brand name -->
       <a class="navbar-brand" href="/">
@@ -42,15 +43,7 @@
     <div class="container">{% block content %} {% endblock %}</div>
 
     <!-- "Go to Top" Button -->
-    <button onclick="topFunction()" id="goToTopBtn" title="Go to Top">↑</button>
-
-    <!-- JavaScript for smooth scroll to top -->
-    <script>
-      // When the user clicks on the button, scroll to the top of the document
-      function topFunction() {
-        window.scrollTo({top: 0, behavior: 'smooth'});
-      }
-    </script>
+    <button onclick="topFunction()" id="goToTopBtn" title="Go to Top" hidden>↑</button>
 
     <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/js/bootstrap.bundle.min.js" ></script>

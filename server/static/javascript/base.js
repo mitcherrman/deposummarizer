@@ -1,14 +1,14 @@
-function validateForm() {
-    var fileInput = document.getElementById('fileInput');
-    if (!fileInput.value) {
-      alert("Please select a file to upload.");
-      return false;
-    }
-
-    // Show the loading message and disable the submit button
-    document.getElementById('btnClicked').setAttribute('disabled', 'disabled');
-    document.getElementById('loading').style.display = 'block';
-    
-    // Submit the form
-    return true;
+// When the user clicks on the button, scroll to the top of the document
+function topFunction() {
+    window.scrollTo({top: 0, behavior: 'smooth'});
 }
+
+addEventListener('scroll', (event) => {
+    if (window.scrollY <= 0) {
+        btn = document.getElementById('goToTopBtn');
+        btn.setAttribute('hidden','')
+    } else if (window.scrollY >= document.body.scrollHeight - window.innerHeight) {
+        btn = document.getElementById('goToTopBtn');
+        btn.removeAttribute('hidden')
+    }
+});

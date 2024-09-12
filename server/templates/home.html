@@ -4,7 +4,7 @@
 {% block title %} Home Page {% endblock %}
 
 {% block content %}
-<script src="{% static 'javascript/base.js' %}"></script>
+<script src="{% static 'javascript/home.js' %}"></script>
 <h1>Upload a PDF of your deposition to Deposum</h1>
 <form method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
     {% csrf_token %}
