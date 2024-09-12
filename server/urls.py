@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from django.views.generic.base import RedirectView
 from . import views
 
 urlpatterns = [
@@ -29,5 +30,6 @@ urlpatterns = [
     path('clear', views.clear, name='clear'),
     path('session', views.session, name='session'),
     path('cyclekey', views.cyclekey, name='cyclekey'),
-    path('ask', views.ask, name='ask')
+    path('ask', views.ask, name='ask'),
+    path('', RedirectView.as_view(url='/home'), name='home')
 ]
