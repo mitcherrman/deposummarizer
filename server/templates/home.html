@@ -1,17 +1,38 @@
 {% extends "base.html" %}
+{% load static %} <!-- Load the static files -->
 
 {% block title %} Home Page {% endblock %}
 
 {% block content %}
 <div class="container">
     <h1>Upload a File for Summarization</h1>
-    <form target=_blank method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
+    <form method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
         {% csrf_token %}
         <div class="form-group">
             <label for="fileInput">Choose a file:</label>
             <input type="file" class="form-control" id="fileInput" name="file" required>
         </div>
-        <button type="submit" class="btn btn-primary" id="btn clicked" onclick="document.getElementById('btn clicked').setAttribute('disabled', ''); document.getElementById('form').submit()">Summarize</button>
+        <button type="submit" class="btn btn-primary" id="btnClicked" onclick="return validateForm()">Summarize</button>
     </form>
+    <div id="loading" style="display:none; margin-top: 10px;">
+        Processing... <img src="{% static '/images/loading.gif' %}" alt="Loading..." style="width: 50px; height: 50px;">
+    </div>
 </div>
+
+<script>
+  function validateForm() {
+    var fileInput = document.getElementById('fileInput');
+    if (!fileInput.value) {
+      alert("Please select a file to upload.");
+      return false;
+    }
+
+    // Show the loading message and disable the submit button
+    document.getElementById('btnClicked').setAttribute('disabled', 'disabled');
+    document.getElementById('loading').style.display = 'block';
+    
+    // Submit the form
+    return true;
+  }
+</script>
 {% endblock %}
