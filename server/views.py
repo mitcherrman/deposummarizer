@@ -9,7 +9,6 @@ from importlib import import_module
 import json
 from decouple import config
 from django.shortcuts import render
-import os
 
 session_engine = import_module(settings.SESSION_ENGINE)
 
