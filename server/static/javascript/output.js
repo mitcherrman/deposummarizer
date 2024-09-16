@@ -11,8 +11,7 @@ function checkSummary() {
             clearInterval(checkSummaryIntervalId);
             load = document.getElementById("loading");
             parent = load.parentElement;
-            frame = document.createElement("embed");
-            frame.setAttribute("type","application/pdf");
+            frame = document.createElement("iframe");
             frame.setAttribute("src", "/out");
             frame.style.setProperty('width', "100%");
             frame.style.setProperty("aspect-ratio", "3 / 2");
