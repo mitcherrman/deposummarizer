@@ -1,16 +1,14 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %} Output {% endblock %}
 {% block content %}
 <!-- WORK IN PROGRESS-->
-<iframe src="/out" style="position:relative">
-    
-</iframe>
+<script src="{% static 'javascript/output.js' %}"></script>
+<div id="loading">
+    Processing... <img src="{% static '/images/loading.gif' %}" alt="Loading..." style="width: 50px; height: 50px;">
+</div>
 <script>
-    frame = document.querySelector("iframe");
-    w = window.screen.width;
-    h = window.screen.height;
-    frame.style.setProperty('width', 3*w/4 + "px");
-    frame.style.setProperty('height', w/2 + "px");
+    startCheckThread();
 </script>
 {% endblock %}

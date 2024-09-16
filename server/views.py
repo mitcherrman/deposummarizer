@@ -8,7 +8,7 @@ from threading import Thread, Lock
 from importlib import import_module
 import json
 from decouple import config
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 import os
 
 session_engine = import_module(settings.SESSION_ENGINE)
@@ -60,7 +60,7 @@ def summarize(request):
 				s.save()
 	t = Thread(target=r,args=[id])
 	t.start()
-	return HttpResponse("Summary started.")
+	return redirect(output)
 
 #ask a question to the chatbot, requires summary to have been done first
 @csrf_exempt
