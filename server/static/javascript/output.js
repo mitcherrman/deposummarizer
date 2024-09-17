@@ -22,9 +22,11 @@ function checkSummary() {
     });
 }
 
-document.getElementById("question").addEventListener("keyup", (event) => {
+document.getElementById("question").addEventListener("keydown", (event) => {
     if (event.key == "Enter") {
         form = document.getElementById("chat-question");
+        form.submit();
         form.reset();
+        document.getElementById("question").blur();
     }
 });
