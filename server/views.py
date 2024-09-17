@@ -73,12 +73,12 @@ def ask(request):
 	try:
 		data = request.POST
 	except:
-		return HttpResponseBadRequest("Malformed body, should be formatted in JSON with a value for the \"question\" key")
+		return HttpResponseBadRequest("Malformed body, should have a \"question\" element in the body")
 	print(f"[{id}]: {data}")
 	#check for finished summary
 	if (not request.session.get('db_len')) or request.session['db_len'] <= 0: return HttpResponse("No file summarized", status=409)
 	if not data.get('question'):
-		return HttpResponseBadRequest("Malformed body, should be formatted in JSON with a value for the \"question\" key")
+		return HttpResponseBadRequest("Please enter a question.")
 	response = askQuestion(data['question'], id, request.session['prompt_append'], request.session['db_len'])
 	if response == None:
 		return HttpResponseServerError("Something went wrong with the OpenAI call, please try again later.")

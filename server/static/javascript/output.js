@@ -22,8 +22,9 @@ function checkSummary() {
     });
 }
 
-document.getElementById("question").addEventListener("keydown", (event) => {
+document.getElementById("question").addEventListener("keyup", (event) => {
     if (event.key == "Enter") {
-        document.getElementById("chat-question").submit();
+        form = document.getElementById("chat-question");
+        form.reset();
     }
 });
