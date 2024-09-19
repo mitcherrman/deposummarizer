@@ -122,9 +122,9 @@ def out(request):
 		request.session.save()
 	id = request.session.session_key
 	if request.method == 'HEAD':
-		if os.path.isfile(f"[{id}]: {settings.SUMMARY_URL}{id}.pdf"):
+		if os.path.isfile(f"{settings.SUMMARY_URL}{id}.pdf"):
 			return HttpResponse()
-		elif not request.session['db_len'] or request.session['db_len'] == -1:
+		elif not request.session.get('db_len') or request.session['db_len'] == -1:
 			return HttpResponse(status=409)
 		elif request.session['db_len'] == 0:
 			return HttpResponseBadRequest()

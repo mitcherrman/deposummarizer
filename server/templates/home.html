@@ -3,6 +3,10 @@
 
 {% block title %} Home Page | Deposum {% endblock %}
 
+{% block links %}
+<link rel="stylesheet" href="{% static '/styles/home.css' %}">
+{% endblock %}
+
 {% block content %}
 <script src="{% static 'javascript/home.js' %}"></script>
 <h1>Upload a PDF of your deposition to Deposum</h1>
@@ -20,21 +24,7 @@
     Processing... <img src="{% static '/images/gavel-judge.gif' %}" alt="Loading..." style="width: 50px; height: 50px;">
 </div>
 
-<!-- textarea -->
-<div class="form-group" style="margin-top: 100px;">
-    <label for="chatbot1">Chatbot pending...</label>
-    <textarea id="chatbot1" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
-</div>
-
-<!--  textarea -->
-<div class="form-group" style="margin-top: 20px;">
-    <label for="chatbot2">Chatbot pending...</label>
-    <textarea id="chatbot2" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
-</div>
-
-<!--  textarea -->
-<div class="form-group" style="margin-top: 20px;">
-    <label for="chatbot3">Chatbot pending...</label>
-    <textarea id="chatbot3" class="form-control" rows="8" placeholder="Ask Deposum anything!"></textarea>
-</div>
+<p class="output-url" hidden>
+    It appears that you have already summarized a document - you can find the summary <a href="{% url 'output' %}">here</a>.
+</p>
 {% endblock %}
