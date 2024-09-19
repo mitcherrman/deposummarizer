@@ -116,11 +116,20 @@ def clear(request):
 #provides output pdf
 @csrf_exempt
 def out(request):
-	if request.method != 'GET':
-		return HttpResponseNotAllowed(['GET'])
+	if request.method != 'GET' and request.method != 'HEAD':
+		return HttpResponseNotAllowed(['GET', 'HEAD'])
 	if not request.session.session_key:
 		request.session.save()
 	id = request.session.session_key
+	if request.method == 'HEAD':
+		if os.path.isfile(f"[{id}]: {settings.SUMMARY_URL}{id}.pdf"):
+			return HttpResponse()
+		elif not request.session['db_len'] or request.session['db_len'] == -1:
+			return HttpResponse(status=409)
+		elif request.session['db_len'] == 0:
+			return HttpResponseBadRequest()
+		else:
+			return HttpResponseServerError()
 	try:
 		#open summary file
 		print(f"[{id}]: {settings.SUMMARY_URL}{id}.pdf")
@@ -142,7 +151,7 @@ def out(request):
 			else:
 				return HttpResponseServerError("Unknown error")
 		except KeyError:
-			return HttpResponse("No input file found, summarize using the /summarize view", status=409)
+			return HttpResponse("No input file found, summarize a file first", status=409)
 
 #efficiently checks if summary is in progress
 def verify(request):

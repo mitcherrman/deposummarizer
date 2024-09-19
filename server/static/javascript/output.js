@@ -15,7 +15,6 @@ function checkSummary() {
             frame.setAttribute("src", "/out");
             frame.style.setProperty('width', "75%");
             frame.style.setProperty("aspect-ratio", "3 / 2");
-            //frame.style.setProperty("float", "left");
             parent.replaceChild(frame, load);
             document.querySelector(".form-group").removeAttribute("hidden");
         }

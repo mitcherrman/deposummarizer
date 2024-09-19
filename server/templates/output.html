@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %} Output {% endblock %}
+{% block title %} Output | Deposum {% endblock %}
 {% block content %}
 <!-- WORK IN PROGRESS-->
 <div id="loading">
@@ -13,7 +13,7 @@
         <label for="question">Question:</label>
         <input id="question" name="question" type="text" placeholder="Ask Deposum anything!" required></input>
     </form>
-    <iframe id="answer" name="answer" style="width: 100%"></iframe>
+    <iframe class="chat-frame" id="answer" name="answer"></iframe>
 </div>
 <script src="{% static 'javascript/output.js' %}"></script>
 <script>
