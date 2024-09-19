@@ -1,0 +1,80 @@
+import unittest
+import fitz  # PyMuPDF
+from summary.summarizer import (
+    extract_text_with_numbers, 
+    summarize_deposition_text, 
+    split_text_by_page, 
+    write_summaries_to_pdf
+)
+import os
+from io import BytesIO
+
+class TestSummaryProcessor(unittest.TestCase):
+
+    def setUp(self):
+        """
+        This method runs before each test. You can use it to create sample data or 
+        set up objects to test.
+        """
+        self.test_pdf_path = "sample.pdf"
+        self.sample_text = "This is a test. Page 1\nPage 2"
+        # Ensure the test file exists
+        with open(self.test_pdf_path, "wb") as f:
+            f.write(b'%PDF-1.4\n%fake pdf')
+
+    def tearDown(self):
+        """
+        This method runs after each test. You can use it to clean up, such as deleting test files.
+        """
+        if os.path.exists(self.test_pdf_path):
+            os.remove(self.test_pdf_path)
+
+    def test_extract_text_with_numbers(self):
+        """
+        Test extracting text from a PDF.
+        """
+        # Call the function
+        extracted_text = extract_text_with_numbers(self.test_pdf_path)
+        self.assertIsNotNone(extracted_text)
+        # Check if the output contains expected structure (based on the content)
+        self.assertIn('Page', extracted_text)
+
+    def test_summarize_deposition_text(self):
+        """
+        Test summarizing a block of text using the language model.
+        """
+        # Call the function to summarize
+        summarized_text = summarize_deposition_text("This is a legal deposition.")
+        self.assertIsInstance(summarized_text, str)
+        self.assertNotEqual(summarized_text, "")
+
+    def test_split_text_by_page(self):
+        """
+        Test the text-splitting function that divides text into pages.
+        """
+        # Simulate some text with page breaks
+        pages = split_text_by_page(self.sample_text)
+        self.assertEqual(len(pages), 2)  # Expect 2 pages
+        self.assertIn("Page 1", pages[0])
+        self.assertIn("Page 2", pages[1])
+
+    def test_write_summaries_to_pdf(self):
+        """
+        Test writing summaries to a PDF.
+        """
+        summaries = ["Summary of Page 1", "Summary of Page 2"]
+        output_path = "output_summary_test.pdf"
+        
+        # Call the function to write to PDF
+        write_summaries_to_pdf(summaries, output_path)
+        
+        # Ensure file is created
+        self.assertTrue(os.path.exists(output_path))
+        
+        # Cleanup
+        if os.path.exists(output_path):
+            os.remove(output_path)
+
+# Run the tests if this script is executed
+if __name__ == "__main__":
+    unittest.main()
