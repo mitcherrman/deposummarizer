@@ -1,16 +1,22 @@
 {% extends "base.html" %}
+{% load static %}
 
 {% block title %} Output {% endblock %}
 {% block content %}
 <!-- WORK IN PROGRESS-->
-<iframe src="/out" style="position:relative">
-    
-</iframe>
+<div id="loading">
+    Processing... <img src="{% static '/images/loading.gif' %}" alt="Loading..." style="width: 50px; height: 50px;">
+</div>
+<div class="form-group" style="width: 25%; float: right; padding-left: 1%" hidden>
+    <h3>Chatbot:</h3>
+    <form target="answer" id="chat-question" method="POST" action="{% url 'ask' %}">
+        <label for="question">Question:</label>
+        <input id="question" name="question" type="text" placeholder="Ask Deposum anything!" required></input>
+    </form>
+    <iframe id="answer" name="answer" style="width: 100%"></iframe>
+</div>
+<script src="{% static 'javascript/output.js' %}"></script>
 <script>
-    frame = document.querySelector("iframe");
-    w = window.screen.width;
-    h = window.screen.height;
-    frame.style.setProperty('width', 3*w/4 + "px");
-    frame.style.setProperty('height', w/2 + "px");
+    startCheckThread();
 </script>
 {% endblock %}

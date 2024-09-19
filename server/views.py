@@ -8,7 +8,8 @@ from threading import Thread, Lock
 from importlib import import_module
 import json
 from decouple import config
-from django.shortcuts import render
+from django.shortcuts import render, redirect
+import os
 
 session_engine = import_module(settings.SESSION_ENGINE)
 
@@ -59,7 +60,7 @@ def summarize(request):
 				s.save()
 	t = Thread(target=r,args=[id])
 	t.start()
-	return HttpResponse("Summary started.")
+	return redirect(output)
 
 #ask a question to the chatbot, requires summary to have been done first
 @csrf_exempt
@@ -70,15 +71,15 @@ def ask(request):
 		request.session.save()
 	id = request.session.session_key
 	try:
-		data = json.loads(request.body)
+		data = request.POST
 	except:
-		return HttpResponseBadRequest("Malformed body, should be formatted in JSON with a value for the \"question\" key")
+		return HttpResponseBadRequest("Malformed body, should have a \"question\" element in the body")
 	print(f"[{id}]: {data}")
 	#check for finished summary
 	if (not request.session.get('db_len')) or request.session['db_len'] <= 0: return HttpResponse("No file summarized", status=409)
 	if not data.get('question'):
-		return HttpResponseBadRequest("Malformed body, should be formatted in JSON with a value for the \"question\" key")
-	response = askQuestion(data.get('question', False), id, request.session['prompt_append'], request.session['db_len'])
+		return HttpResponseBadRequest("Please enter a question.")
+	response = askQuestion(data['question'], id, request.session['prompt_append'], request.session['db_len'])
 	if response == None:
 		return HttpResponseServerError("Something went wrong with the OpenAI call, please try again later.")
 	request.session['prompt_append'] = response[1]
@@ -89,8 +90,6 @@ def ask(request):
 def session(request):
 	if not settings.DEBUG:
 		return HttpResponseNotFound()
-	if request.method != 'POST':
-		return HttpResponseNotAllowed(['POST'])
 	if not request.session.session_key:
 		request.session.save()
 	print(request.session.session_key)
@@ -103,8 +102,6 @@ def session(request):
 def cyclekey(request):
 	if not settings.DEBUG:
 		return HttpResponseNotFound()
-	if request.method != 'POST':
-		return HttpResponseNotAllowed(['POST'])
 	request.session.cycle_key()
 	return HttpResponse("done")
 

@@ -6,7 +6,7 @@
 {% block content %}
 <script src="{% static 'javascript/home.js' %}"></script>
 <h1>Upload a PDF of your deposition to Deposum</h1>
-<form target="abc" method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
+<form method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
     {% csrf_token %}
     <div class="form-group">
         <label for="fileInput">Choose a file:</label>
@@ -14,7 +14,6 @@
     </div>
     <button type="submit" class="btn btn-primary" id="btnClicked" onclick="if (validateForm()) document.getElementById('form').submit();">Summarize</button>
 </form>
-<iframe name="abc" hidden></iframe>
 
 <!-- Loading message -->
 <div id="loading" style="display:none; margin-top: 10px;">
