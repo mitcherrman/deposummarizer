@@ -2,3 +2,7 @@
     font-style: italic;
     margin-top: 20px
 }
+
+.form-control {
+  padding: 3px;
+}
