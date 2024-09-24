@@ -25,8 +25,7 @@ SECRET_KEY = 'django-insecure-0%31bd)ih*a7bzlbmrf3m!lyxrp)9se!%*n(%(#9v!zg#ggk7t
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = ['localhost', '127.0.0.1']
 
 # Application definition
 
@@ -37,6 +36,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'server'
 ]
 
 MIDDLEWARE = [
@@ -115,9 +115,21 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+TEST_WITHOUT_AI = True #if set to true, does not recreate database and generates dummy summary to save on API calls
+
+CHROMA_URL = 'databases/' #path to store chroma vector databases
+
+SUMMARY_URL = 'summaries/' #path to store chroma vector databases
+
+DEPO_URL = 'depos/' #path to store submitted depositions
+
+SESSION_ENGINE = 'server.chroma_db_session'
+
+X_FRAME_OPTIONS = 'SAMEORIGIN'
