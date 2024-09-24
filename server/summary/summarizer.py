@@ -6,6 +6,7 @@ import logging
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib import colors
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
@@ -21,8 +22,9 @@ llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MOD
 
 # Define a prompt template for better input to the LLM
 prompt = ChatPromptTemplate.from_messages([
-    ("system", "The input is a legal deposition. Summarize into brief key points without adhering to grammatical rules. Only include the bare minimum amount of information."),
-    ("user", "{input}")
+    ("system", "You will be given a legal deposition. Provide a brief summary of each page, considering the context of the entire document."),
+    ("user", "{input}"),
+    ("system", "Organize the summary with headers indicating 'Page X:' for each page, where X is the page number.")
 ])
 
 # Initialize output parser to convert chat message to string
@@ -30,6 +32,16 @@ output_parser = StrOutputParser()
 
 # Combine prompt, LLM, and output parser into a chain
 chain = prompt | llm | output_parser
+
+# Helper function to determine if a page is valid for processing based on content length or keywords
+KEYWORDS = ["Exhibit", "Affidavit", "Page", "Witness"]
+def is_page_valid(text, min_length=150, keywords=KEYWORDS):
+    if len(text) >= min_length:
+        return True
+    for keyword in keywords:
+        if keyword.lower() in text.lower():
+            return True
+    return False
 
 # Extracts text from the PDF, ignoring top and bottom margins.
 # Returns the extracted text as a string.
@@ -46,7 +58,7 @@ def extract_text_with_numbers(pdf_path, exclude_top=40, exclude_bottom=70):
         text_blocks = page.get_text("blocks")
         filtered_text = extract_filtered_text(text_blocks, page_height, exclude_top, exclude_bottom)
 
-        if len(filtered_text) > 150:
+        if is_page_valid(filtered_text):
             all_text.append(f"Page {page_num + 1}\n{filtered_text}")
             logging.info(f"Processed page {page_num + 1}, content size {len(filtered_text)}")
         else:
@@ -64,28 +76,59 @@ def extract_filtered_text(blocks, page_height, exclude_top, exclude_bottom):
 # Writes summaries to a PDF file at the given output path.
 def write_summaries_to_pdf(summaries, output_path):
     with io.BytesIO() as pdf_file:
-        doc = SimpleDocTemplate(pdf_file, pagesize=letter)
+        doc = SimpleDocTemplate(
+            pdf_file,
+            pagesize=letter,
+            leftMargin=72, rightMargin=72, topMargin=72, bottomMargin=72  # Adjust margins for readability
+        )
         story = build_pdf_story(summaries)
         doc.build(story)
         pdf_file.seek(0)
         with open(output_path, 'wb') as f:
             f.write(pdf_file.read())
 
-# Build the paragraphs and structure for the PDF document.
+# Build the paragraphs and structure for the PDF document with improved styling
 def build_pdf_story(summaries):
     styles = getSampleStyleSheet()
+
+    # Define styles for the page headers and summaries
     page_style = ParagraphStyle(
-        name='Page', parent=styles['Normal'], fontSize=14, leading=12, spaceAfter=11, bold=True
+        name='Page',
+        parent=styles['Normal'],
+        fontSize=16,  # Larger font size for page headers
+        leading=16,
+        spaceAfter=12,
+        textColor=colors.HexColor('#007bff'),  # Blue color for page titles
+        fontName="Helvetica-Bold"
     )
+
     summary_style = ParagraphStyle(
-        name='Summary', parent=styles['Normal'], fontSize=12, leading=12, spaceAfter=11
+        name='Summary',
+        parent=styles['Normal'],
+        fontSize=12,
+        leading=14,
+        spaceAfter=10,
+        textColor=colors.black,
+        fontName="Times-Roman",
+        borderPadding=(5, 5, 5, 5),  # Add some padding around the summaries
+        backColor=colors.whitesmoke,  # Light background for summaries
+        borderColor=colors.black,
+        borderWidth=1,
+        borderRadius=5
     )
     
     story = []
-    for page_num, summary in enumerate(summaries, start=1):
+    
+    # Iterate over dictionary items (page_num -> summary)
+    for page_num, summary in summaries.items():
+        # Page header with larger font and color
         story.append(Paragraph(f"Page {page_num}", page_style))
+        
+        # Summary paragraph with enhanced formatting
         story.append(Paragraph(summary, summary_style))
-        story.append(Spacer(1, 10))
+        
+        story.append(Spacer(1, 12))  # Add some space between summaries
+    
     return story
 
 # Sends text to the language model and returns the summary.
