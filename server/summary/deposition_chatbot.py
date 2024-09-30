@@ -13,7 +13,6 @@ from threading import Lock
 from django.conf import settings
 
 LOAD_DB_FROM_FOLDER = True
-DEBUG_MODE = False
 DB_PIECE_SIZE = 1
 
 #load model
@@ -73,4 +72,4 @@ def askQuestion(question, id, prompt_append, l):
         {"role":"user","content":question},
         {"role":"assistant","content":parsed_result}
     ])
-    return [(result if DEBUG_MODE else parsed_result), prompt_append]
+    return [parsed_result, prompt_append]

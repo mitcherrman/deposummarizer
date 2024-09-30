@@ -11,21 +11,21 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 """
 
 from pathlib import Path
+from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# SECURITY WARNING: don't run with debug turned on in production!
+DEBUG = True
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-0%31bd)ih*a7bzlbmrf3m!lyxrp)9se!%*n(%(#9v!zg#ggk7t'
+SECRET_KEY = 'django-insecure-0%31bd)ih*a7bzlbmrf3m!lyxrp)9se!%*n(%(#9v!zg#ggk7t' if DEBUG else config("SECRET_KEY")
 
-# SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-
-ALLOWED_HOSTS = ['localhost', '127.0.0.1'] #change for production
+ALLOWED_HOSTS = ['localhost', '127.0.0.1'] if DEBUG else ['*']
 
 # Application definition
 
@@ -122,7 +122,7 @@ STATIC_URL = '/static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-TEST_WITHOUT_AI = True #if set to true, does not recreate database and generates dummy summary to save on API calls
+TEST_WITHOUT_AI = True #if set to true, does not recreate database and generates dummy summary to save on API calls, set to false in production
 
 CHROMA_URL = 'databases/' #path to store chroma vector databases
 

@@ -62,7 +62,7 @@ h1, h2, h3 {
 
 /* Optional background pattern for a more sophisticated feel */
 body {
-  /*background-image: url("{% static 'images/background-pattern.png' %}"); Example background pattern image */
+  /*background-image: url("{% static 'images/background-pattern.png' %}"); /* Example background pattern image */
   background-size: cover;
   background-repeat: no-repeat;
   background-position: center;

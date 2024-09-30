@@ -120,7 +120,9 @@ def build_pdf_story(summaries):
     story = []
     
     # Iterate over dictionary items (page_num -> summary)
-    for page_num, summary in summaries.items():
+    for i in range(0,len(summaries)):
+        page_num = i+1
+        summary = summaries[i]
         # Page header with larger font and color
         story.append(Paragraph(f"Page {page_num}", page_style))
         
@@ -181,7 +183,7 @@ def create_summary(request, id):
         summarized_pages = summarize_deposition(text_pages, id)
         write_summaries_to_pdf(summarized_pages, f"{settings.SUMMARY_URL}{id}.pdf")
     else:
-        write_summaries_to_pdf(text_pages[0], f"{settings.SUMMARY_URL}{id}.pdf")
+        write_summaries_to_pdf(text_pages[0:5], f"{settings.SUMMARY_URL}{id}.pdf")
 
     logging.info(f"[{id}]: Summary saved to: {settings.SUMMARY_URL}{id}.pdf")
     return l
