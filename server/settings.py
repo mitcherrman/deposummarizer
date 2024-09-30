@@ -124,11 +124,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 TEST_WITHOUT_AI = True #if set to true, does not recreate database and generates dummy summary to save on API calls, set to false in production
 
-CHROMA_URL = 'databases/' #path to store chroma vector databases
+CHROMA_URL = config("CHROMA_URL") #path to store chroma vector databases
 
-SUMMARY_URL = 'summaries/' #path to store chroma vector databases
+SUMMARY_URL = config("SUMMARY_URL") #path to store chroma vector databases
 
-DEPO_URL = 'depos/' #path to store submitted depositions
+DEPO_URL = config("DEPO_URL") #path to store submitted depositions
 
 SESSION_ENGINE = 'server.chroma_db_session'
 

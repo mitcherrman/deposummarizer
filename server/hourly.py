@@ -1,12 +1,12 @@
 #A script to be run hourly
 import os, time, shutil
+from decouple import config
 
 #Clear old summary files
 
-#Should be same as settings.py, find way to automate syncing
-CHROMA_URL = 'databases/' #path to store chroma vector databases
-SUMMARY_URL = 'summaries/' #path to store chroma vector databases
-DEPO_URL = 'depos/' #path to store submitted depositions
+CHROMA_URL = config("CHROMA_URL") #path to store chroma vector databases
+SUMMARY_URL = config("SUMMARY_URL") #path to store chroma vector databases
+DEPO_URL = config("DEPO_URL") #path to store submitted depositions
 
 FILE_EXPIRY_TIME = 86400 #1 day
 
