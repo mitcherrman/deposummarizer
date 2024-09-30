@@ -10,4 +10,4 @@ In order to run this website locally, a `.env` file is required to configure cer
 - `SUMMARY_URL`: the name of the directory where generated summaries will be stored
 - `DEPO_URL`: the name of the directory where given depositions will be stored
 
-In addition, this repository contains a script called `hourly.py`, which should be run hourly when the web server is active
+In addition, this repository contains a script called `hourly.py`, which should be run hourly when the web server is active.
