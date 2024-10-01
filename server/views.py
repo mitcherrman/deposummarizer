@@ -19,7 +19,6 @@ session_lock = Lock()
 # --- backend views ---
 
 #summarizes input and sets up chatbot
-@csrf_exempt
 def summarize(request):
 	if request.method != 'POST':
 		return HttpResponseNotAllowed(['POST'])
@@ -114,7 +113,6 @@ def clear(request):
 	return HttpResponse("session cleared")
 
 #provides output pdf
-@csrf_exempt
 def out(request):
 	if request.method != 'GET' and request.method != 'HEAD':
 		return HttpResponseNotAllowed(['GET', 'HEAD'])

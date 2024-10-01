@@ -16,7 +16,44 @@ function checkSummary() {
             frame.style.setProperty('width', "75%");
             frame.style.setProperty("aspect-ratio", "3 / 2");
             parent.replaceChild(frame, load);
-            document.querySelector(".form-group").removeAttribute("hidden");
+            document.querySelector(".chat-container").removeAttribute("hidden");
+        }
+    });
+}
+
+function createMessageBubble(text, out, error=false) {
+    bubble = document.createElement("p");
+    bubble.classList.add("chat-messages-bubble");
+    if (out) {
+        bubble.classList.add("chat-messages-out");
+    } else {
+        bubble.classList.add("chat-messages-in");
+    }
+    if (error) {
+        bubble.classList.add("chat-messages-error");
+    }
+    bubble.innerText = text;
+    document.querySelector(".chat-messages").appendChild(bubble);
+}
+
+function submitQuestion() {
+    data = new FormData(document.querySelector(".chat-question"));
+    createMessageBubble(data.get("question"), true);
+    box = document.querySelector(".chat-messages");
+    box.scrollTo(0, box.scrollHeight-box.offsetHeight);
+    currUrl = window.location.href;
+    let ok = true;
+    fetch(currUrl.substring(0,currUrl.length-6) + "ask", {
+        method: "POST",
+        body: data
+    }).then((response) => {
+        ok = response.ok;
+        return response.text();
+    }).then((answer) => {
+        let jumpBottom = box.scrollTop >= box.scrollHeight-box.offsetHeight-1;
+        createMessageBubble(answer, false, !ok);
+        if (jumpBottom) {
+            box.scrollTo(0, box.scrollHeight-box.offsetHeight);
         }
     });
 }
@@ -24,7 +61,7 @@ function checkSummary() {
 document.getElementById("question").addEventListener("keydown", (event) => {
     if (event.key == "Enter") {
         form = document.getElementById("chat-question");
-        form.submit();
+        submitQuestion();
         form.reset();
         document.getElementById("question").blur();
     }

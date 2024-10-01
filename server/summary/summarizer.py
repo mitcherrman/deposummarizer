@@ -171,7 +171,7 @@ def create_summary(request, id):
     
     try:
         raw_text = extract_text_with_numbers(file_path)
-    except FileNotFoundError:
+    except:
         return -2
 
     # Initialize chatbot for processing
