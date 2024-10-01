@@ -133,7 +133,7 @@ def out(request):
 		print(f"[{id}]: {settings.SUMMARY_URL}{id}.pdf")
 		with open(f"{settings.SUMMARY_URL}{id}.pdf", 'rb') as pdf:
 			response = HttpResponse(pdf.read(), content_type='application/pdf')
-			response['Content-Disposition'] = 'filename=some_file.txt'
+			response['Content-Disposition'] = f'filename=deposition_summary.pdf'
 			return response
 	except FileNotFoundError:
 		try:

@@ -55,6 +55,9 @@ function submitQuestion() {
         if (jumpBottom) {
             box.scrollTo(0, box.scrollHeight-box.offsetHeight);
         }
+    }).catch((exc) => {
+        createMessageBubble("It appears the server did not respond properly, check console log for more details.", false, true);
+        throw exc;
     });
 }
 

@@ -25,12 +25,15 @@
   border-top-right-radius: 10px;
   padding: 5px;
   padding-left: 10px;
+  margin-bottom: 0;
 }
 
 .chat-messages {
   flex-grow: 1;
   overflow-y: scroll;
   padding: 10px;
+  border-left: 1px solid #CCCCCC;
+  border-right: 1px solid #CCCCCC;
 }
 
 .chat-messages-bubble {
@@ -39,6 +42,7 @@
   width: 60%;
   font-family: "Roboto";
   line-height: 1.1em;
+  box-shadow: #888888 2px 5px 5px;
 }
 
 .chat-messages-out {
@@ -60,6 +64,7 @@
 
 .chat-question {
   background-color: #EFEFEF;
+  border: 1px solid #CCCCCC;
   border-bottom-left-radius: 10px;
   border-bottom-right-radius: 10px;
   padding: 5px;
@@ -69,13 +74,15 @@
 
 .chat-question-label {
   position: relative;
+  padding-right: 5px;
+  top: calc(50% - 0.75em);
 }
 
 .chat-question-box {
-  border: 1px solid #000000;
-  border-radius: 10px;
+  border: none;
+  border-radius: 7px;
   width: 100%;
-  max-width: 150px;
-  margin-left: auto;
-  margin-right: 0px;
+  max-width: 200px;
+  margin: 1px auto 1px 0px;
+  padding-left: 4px;
 }
