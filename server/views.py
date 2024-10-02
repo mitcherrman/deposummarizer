@@ -92,7 +92,7 @@ def transcript(request):
 	for line in raw:
 		dialog += ("Q" if line['role'] == 'user' else "A" if line['role'] == 'assistant' else "?") + ": " + line['content'] + "\n"
 	response = HttpResponse(dialog, content_type='text/plain')
-	response['Content-Disposition'] = 'filename=transcript.txt'
+	response['Content-Disposition'] = 'filename=deposum_chat_transcript.txt'
 	return response
 
 #debug view to print session in console, returns 404 in production

@@ -6,7 +6,7 @@ function startCheckThread() {
 
 function checkSummary() {
     currUrl = window.location.href;
-    fetch(currUrl + "/verify").then((response) => {
+    fetch("out/verify").then((response) => {
         if (response.status != 200) {
             clearInterval(checkSummaryIntervalId);
             load = document.getElementById("loading");
@@ -45,7 +45,7 @@ function submitQuestion() {
     let ok = true;
     textbox = document.getElementById("question");
     textbox.setAttribute("disabled","");
-    fetch(currUrl.substring(0,currUrl.length-6) + "ask", {
+    fetch("ask", {
         method: "POST",
         body: data
     }).then((response) => {
@@ -56,6 +56,9 @@ function submitQuestion() {
         createMessageBubble(answer, false, !ok);
         if (jumpBottom) {
             box.scrollTo(0, box.scrollHeight-box.offsetHeight);
+        }
+        if (ok) {
+            document.querySelector(".chat-download-button").removeAttribute("hidden");
         }
     }).catch((exc) => {
         createMessageBubble("It appears the server did not respond properly, check console log for more details.", false, true);
