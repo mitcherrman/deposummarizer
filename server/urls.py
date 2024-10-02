@@ -28,6 +28,7 @@ urlpatterns = [
     path('output', views.output, name='output'),
     path('out', views.out, name='out'),
     path('output/verify', views.verify, name='verify'),
+    path('transcript', views.transcript, name='transcript'),
     path('clear', views.clear, name='clear'),
     path('session', views.session, name='session'),
     path('cyclekey', views.cyclekey, name='cyclekey'),

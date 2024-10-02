@@ -43,6 +43,8 @@ function submitQuestion() {
     box.scrollTo(0, box.scrollHeight-box.offsetHeight);
     currUrl = window.location.href;
     let ok = true;
+    textbox = document.getElementById("question");
+    textbox.setAttribute("disabled","");
     fetch(currUrl.substring(0,currUrl.length-6) + "ask", {
         method: "POST",
         body: data
@@ -58,6 +60,8 @@ function submitQuestion() {
     }).catch((exc) => {
         createMessageBubble("It appears the server did not respond properly, check console log for more details.", false, true);
         throw exc;
+    }).finally(() => {
+        textbox.removeAttribute("disabled");
     });
 }
 
