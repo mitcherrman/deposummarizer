@@ -119,12 +119,10 @@ def build_pdf_story(summaries):
     
     story = []
     
-    # Iterate over dictionary items (page_num -> summary)
-    for i in range(0,len(summaries)):
-        page_num = i+1
-        summary = summaries[i]
+    # Iterate over the list of summaries
+    for i, summary in enumerate(summaries, start=1):  # Use enumerate to get the page number
         # Page header with larger font and color
-        story.append(Paragraph(f"Page {page_num}", page_style))
+        story.append(Paragraph(f"Page {i}", page_style))
         
         # Summary paragraph with enhanced formatting
         story.append(Paragraph(summary, summary_style))
@@ -144,13 +142,13 @@ def summarize_deposition_text(text):
 
 # Summarizes each page of the deposition and returns the summaries.
 def summarize_deposition(text_pages, id):
-    summaries = []
-    for page in text_pages:
+    summaries = []  # Use a list to store summaries in order
+    for page_num, page in enumerate(text_pages, start=1):
         if len(page) > 150:
             summary = summarize_deposition_text(page)
-            summaries.append(summary)
+            summaries.append(summary)  # Store summaries in the list in order
         else:
-            logging.info(f"[{id}]: Skipped page with size {len(page)}")
+            logging.info(f"[{id}]: Skipped page {page_num} with size {len(page)}")
     return summaries
 
 # Split extracted text into pages, assuming each page starts with "Page" followed by a number.
