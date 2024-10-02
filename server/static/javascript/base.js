@@ -5,10 +5,10 @@ function topFunction() {
 
 addEventListener('scroll', (event) => {
     if (window.scrollY <= 0) {
-        btn = document.getElementById('goToTopBtn');
+        let btn = document.getElementById('goToTopBtn');
         btn.setAttribute('hidden','')
     } else if (window.scrollY >= document.body.scrollHeight - window.innerHeight) {
-        btn = document.getElementById('goToTopBtn');
+        let btn = document.getElementById('goToTopBtn');
         btn.removeAttribute('hidden')
     }
 });

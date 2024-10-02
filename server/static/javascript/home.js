@@ -13,7 +13,7 @@ function validateForm() {
 }
 
 function checkForSummary() {
-  currUrl = window.location.href;
+  let currUrl = window.location.href;
   fetch(currUrl.substring(0,currUrl.length-4) + "out", {
     method: "HEAD"
   }).then((response) => {
