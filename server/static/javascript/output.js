@@ -5,13 +5,12 @@ function startCheckThread() {
 }
 
 function checkSummary() {
-    currUrl = window.location.href;
-    fetch(currUrl + "/verify").then((response) => {
+    fetch("out/verify").then((response) => {
         if (response.status != 200) {
             clearInterval(checkSummaryIntervalId);
-            load = document.getElementById("loading");
-            parent = load.parentElement;
-            frame = document.createElement("iframe");
+            let load = document.getElementById("loading");
+            let parent = load.parentElement;
+            let frame = document.createElement("iframe");
             frame.setAttribute("src", "/out");
             frame.style.setProperty('width', "75%");
             frame.style.setProperty("aspect-ratio", "3 / 2");
@@ -22,7 +21,7 @@ function checkSummary() {
 }
 
 function createMessageBubble(text, out, error=false) {
-    bubble = document.createElement("p");
+    let bubble = document.createElement("p");
     bubble.classList.add("chat-messages-bubble");
     if (out) {
         bubble.classList.add("chat-messages-out");
@@ -37,13 +36,14 @@ function createMessageBubble(text, out, error=false) {
 }
 
 function submitQuestion() {
-    data = new FormData(document.querySelector(".chat-question"));
+    let data = new FormData(document.querySelector(".chat-question"));
     createMessageBubble(data.get("question"), true);
-    box = document.querySelector(".chat-messages");
+    let box = document.querySelector(".chat-messages");
     box.scrollTo(0, box.scrollHeight-box.offsetHeight);
-    currUrl = window.location.href;
     let ok = true;
-    fetch(currUrl.substring(0,currUrl.length-6) + "ask", {
+    let textbox = document.getElementById("question");
+    textbox.setAttribute("disabled","");
+    fetch("ask", {
         method: "POST",
         body: data
     }).then((response) => {
@@ -55,15 +55,20 @@ function submitQuestion() {
         if (jumpBottom) {
             box.scrollTo(0, box.scrollHeight-box.offsetHeight);
         }
+        if (ok) {
+            document.querySelector(".chat-download-button").removeAttribute("hidden");
+        }
     }).catch((exc) => {
         createMessageBubble("It appears the server did not respond properly, check console log for more details.", false, true);
         throw exc;
+    }).finally(() => {
+        textbox.removeAttribute("disabled");
     });
 }
 
 document.getElementById("question").addEventListener("keydown", (event) => {
     if (event.key == "Enter") {
-        form = document.getElementById("chat-question");
+        let form = document.getElementById("chat-question");
         submitQuestion();
         form.reset();
         document.getElementById("question").blur();

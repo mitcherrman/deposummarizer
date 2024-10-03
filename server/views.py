@@ -62,7 +62,6 @@ def summarize(request):
 	return redirect(output)
 
 #ask a question to the chatbot, requires summary to have been done first
-@csrf_exempt
 def ask(request):
 	if request.method != 'POST':
 		return HttpResponseNotAllowed(['POST'])
@@ -83,6 +82,18 @@ def ask(request):
 		return HttpResponseServerError("Something went wrong with the OpenAI call, please try again later.")
 	request.session['prompt_append'] = response[1]
 	return HttpResponse(response[0])
+
+#returns a transcript of the chat dialog
+def transcript(request):
+	if request.method != 'GET':
+		return HttpResponseNotAllowed(['GET'])
+	raw = request.session['prompt_append']
+	dialog = ""
+	for line in raw:
+		dialog += ("Q" if line['role'] == 'user' else "A" if line['role'] == 'assistant' else "?") + ": " + line['content'] + "\n"
+	response = HttpResponse(dialog, content_type='text/plain')
+	response['Content-Disposition'] = 'filename=deposum_chat_transcript.txt'
+	return response
 
 #debug view to print session in console, returns 404 in production
 @csrf_exempt
@@ -133,7 +144,7 @@ def out(request):
 		print(f"[{id}]: {settings.SUMMARY_URL}{id}.pdf")
 		with open(f"{settings.SUMMARY_URL}{id}.pdf", 'rb') as pdf:
 			response = HttpResponse(pdf.read(), content_type='application/pdf')
-			response['Content-Disposition'] = f'filename=deposition_summary.pdf'
+			response['Content-Disposition'] = 'filename=deposition_summary.pdf'
 			return response
 	except FileNotFoundError:
 		try:
