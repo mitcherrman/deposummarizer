@@ -43,6 +43,50 @@ def is_page_valid(text, min_length=150, keywords=KEYWORDS):
             return True
     return False
 
+# Remove marginal text (headers, footers, side margins)
+def remove_marginal_text(pdf_path, output_path):
+    pdf_document = fitz.open(pdf_path)
+    new_pdf = fitz.open()  # Create a new PDF
+
+    for page_num in range(pdf_document.page_count):
+        page = pdf_document.load_page(page_num)
+        page_rect = page.rect  # Get the page dimensions
+
+        # Define threshold areas for headers, footers, and side margins
+        header_threshold = 0.1 * page_rect.height  # Top 10% of the page
+        footer_threshold = 0.9 * page_rect.height  # Bottom 10% of the page
+        side_margin_threshold = 0.1 * page_rect.width  # Left and right 10% of the page
+
+        # Extract all text blocks
+        text_blocks = page.get_text("dict")['blocks']
+
+        # Create a new page to copy only the main text
+        new_page = new_pdf.new_page(width=page_rect.width, height=page_rect.height)
+
+        # Iterate over text blocks and filter out marginal content
+        for block in text_blocks:
+            if 'lines' in block:
+                for line in block['lines']:
+                    for span in line['spans']:
+                        block_rect = fitz.Rect(span['bbox'])
+                        text = span['text']
+
+                        # Skip blocks in the header, footer, or side margins
+                        if (block_rect.y1 <= header_threshold or
+                            block_rect.y0 >= footer_threshold or
+                            block_rect.x0 <= side_margin_threshold or
+                            block_rect.x1 >= page_rect.width - side_margin_threshold):
+                            continue  # This is marginal content, skip it
+
+                        # Otherwise, re-insert the content in the new PDF using default font
+                        new_page.insert_text((block_rect.x0, block_rect.y0), text, fontsize=span['size'])
+
+    pdf_document.close()
+
+    # Save the new PDF
+    new_pdf.save(output_path)
+    new_pdf.close()
+
 # Extracts text from the PDF, ignoring top and bottom margins.
 # Returns the extracted text as a string.
 def extract_text_with_numbers(pdf_path, exclude_top=40, exclude_bottom=70):
@@ -157,7 +201,7 @@ def split_text_by_page(text):
     pages = [page if i == 0 else 'Page ' + page for i, page in enumerate(pages)]
     return pages
 
-# Orchestrates the entire summary process: from extracting text, splitting it into pages,
+# Orchestrates the entire summary process: from removing marginal text, extracting text, splitting it into pages,
 # summarizing it, and writing the final summaries to a PDF.
 def create_summary(request, id):
     file_path = request
@@ -166,9 +210,13 @@ def create_summary(request, id):
         return 0
 
     logging.info(f"Processing file: {file_path}")
-    
+
+    # Clean up marginal text
+    cleaned_pdf_path = f"cleaned_{os.path.basename(file_path)}"
+    remove_marginal_text(file_path, cleaned_pdf_path)
+
     try:
-        raw_text = extract_text_with_numbers(file_path)
+        raw_text = extract_text_with_numbers(cleaned_pdf_path)
     except:
         return -2
 
