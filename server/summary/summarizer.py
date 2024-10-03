@@ -212,11 +212,11 @@ def create_summary(request, id):
     logging.info(f"Processing file: {file_path}")
 
     # Clean up marginal text
-    cleaned_pdf_path = f"cleaned_{os.path.basename(file_path)}"
-    remove_marginal_text(file_path, cleaned_pdf_path)
+    #cleaned_pdf_path = f"cleaned_{os.path.basename(file_path)}"
+    remove_marginal_text(file_path, file_path)
 
     try:
-        raw_text = extract_text_with_numbers(cleaned_pdf_path)
+        raw_text = extract_text_with_numbers(file_path)
     except:
         return -2
 
