@@ -9,5 +9,6 @@ In order to run this website locally, a `.env` file is required to configure cer
 - `CHROMA_URL`: the name of the directory where Chroma vector databases will be stored
 - `SUMMARY_URL`: the name of the directory where generated summaries will be stored
 - `DEPO_URL`: the name of the directory where given depositions will be stored
+- `SECRET_KEY`: the secret key to be used by Django in production
 
 In addition, this repository contains a script called `hourly.py`, which should be run hourly when the web server is active.

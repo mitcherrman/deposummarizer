@@ -25,7 +25,7 @@ DEBUG = True
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-0%31bd)ih*a7bzlbmrf3m!lyxrp)9se!%*n(%(#9v!zg#ggk7t' if DEBUG else config("SECRET_KEY")
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1'] if DEBUG else ['*']
+ALLOWED_HOSTS = ['*']
 
 # Application definition
 

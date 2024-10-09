@@ -1,0 +1,10 @@
+fitz
+pymupdf
+reportlab
+langchain
+langchain-chroma
+langchain-core
+langchain-openai
+langchain-text-splitters
+python-decouple
+django
