@@ -1,0 +1,10 @@
+wsgi_app = "server.wsgi:application"
+loglevel = "debug"
+workers = 2
+bind = "0.0.0.0:8000"
+reload = True #off during production
+accesslog = "gunicorn/accesss.log"
+errorlog = "gunicorn/error.log"
+capture_output = False
+pidfile = "gunicorn/dev.pid"
+daemon = True

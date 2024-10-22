@@ -4,5 +4,6 @@
 }
 
 .form-control {
-  padding: 3px;
+  display: grid;
+  padding-bottom: 10px;
 }
