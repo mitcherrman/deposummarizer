@@ -10,3 +10,4 @@ python-decouple
 django
 frontend
 tools
+gunicorn
