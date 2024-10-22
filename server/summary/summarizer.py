@@ -209,27 +209,27 @@ def create_summary(request, id):
         logging.error(f"[{id}]: No file path provided")
         return 0
 
-    logging.info(f"Processing file: {file_path}")
-
-    # Clean up marginal text
-    #cleaned_pdf_path = f"cleaned_{os.path.basename(file_path)}"
-    remove_marginal_text(file_path, file_path)
-
     try:
+        logging.info(f"Processing file: {file_path}")
+
+        # Clean up marginal text
+        #cleaned_pdf_path = f"cleaned_{os.path.basename(file_path)}"
+        remove_marginal_text(file_path, file_path)
+
         raw_text = extract_text_with_numbers(file_path)
+
+        # Initialize chatbot for processing
+        l = cb.initBot(raw_text, id)
+
+        text_pages = split_text_by_page(raw_text)
+        
+        if not settings.TEST_WITHOUT_AI:
+            summarized_pages = summarize_deposition(text_pages, id)
+            write_summaries_to_pdf(summarized_pages, f"{settings.SUMMARY_URL}{id}.pdf")
+        else:
+            write_summaries_to_pdf(text_pages[0:5], f"{settings.SUMMARY_URL}{id}.pdf")
+
+        logging.info(f"[{id}]: Summary saved to: {settings.SUMMARY_URL}{id}.pdf")
+        return l
     except:
         return -2
-
-    # Initialize chatbot for processing
-    l = cb.initBot(raw_text, id)
-
-    text_pages = split_text_by_page(raw_text)
-    
-    if not settings.TEST_WITHOUT_AI:
-        summarized_pages = summarize_deposition(text_pages, id)
-        write_summaries_to_pdf(summarized_pages, f"{settings.SUMMARY_URL}{id}.pdf")
-    else:
-        write_summaries_to_pdf(text_pages[0:5], f"{settings.SUMMARY_URL}{id}.pdf")
-
-    logging.info(f"[{id}]: Summary saved to: {settings.SUMMARY_URL}{id}.pdf")
-    return l
