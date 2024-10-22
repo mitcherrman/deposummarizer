@@ -8,3 +8,4 @@ langchain-openai
 langchain-text-splitters
 python-decouple
 django
+frontend
