@@ -137,3 +137,10 @@ DEPO_URL = config("DEPO_URL") #path to store submitted depositions
 SESSION_ENGINE = 'server.chroma_db_session'
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
+
+#HSTS settings
+
+SECURE_HSTS_SECONDS = 30
+SECURE_HSTS_PRELOAD = True
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
