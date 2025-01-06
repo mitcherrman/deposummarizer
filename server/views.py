@@ -9,6 +9,7 @@ from importlib import import_module
 import json
 from decouple import config
 from django.shortcuts import render, redirect
+from pdf2docx import Converter
 import os
 
 session_engine = import_module(settings.SESSION_ENGINE)
@@ -41,6 +42,8 @@ def summarize(request):
 		if os.path.isdir(dirname): shutil.rmtree(dirname)
 	if os.path.isfile(f"{settings.SUMMARY_URL}{id}.pdf"):
 		os.remove(f"{settings.SUMMARY_URL}{id}.pdf")
+	if os.path.isfile(f"{settings.SUMMARY_URL}{id}.docx"):
+		os.remove(f"{settings.SUMMARY_URL}{id}.docx")
 	if os.path.isfile(f"{settings.DEPO_URL}{id}.pdf"):
 		os.remove(f"{settings.DEPO_URL}{id}.pdf")
 	#write input file to storage
@@ -123,8 +126,8 @@ def clear(request):
 	request.session.clear()
 	return HttpResponse("session cleared")
 
-#provides output pdf
-def out(request):
+#helper function, gets output doc in different formats
+def get_out(request, type):
 	if request.method != 'GET' and request.method != 'HEAD':
 		return HttpResponseNotAllowed(['GET', 'HEAD'])
 	if not request.session.session_key:
@@ -141,11 +144,25 @@ def out(request):
 			return HttpResponseServerError()
 	try:
 		#open summary file
-		print(f"[{id}]: {settings.SUMMARY_URL}{id}.pdf")
-		with open(f"{settings.SUMMARY_URL}{id}.pdf", 'rb') as pdf:
-			response = HttpResponse(pdf.read(), content_type='application/pdf')
-			response['Content-Disposition'] = 'filename=deposition_summary.pdf'
-			return response
+		url = f"{settings.SUMMARY_URL}{id}.pdf"
+		print(f"[{id}]: {url}")
+		if type == "pdf":
+			with open(url, 'rb') as pdf:
+				response = HttpResponse(pdf.read(), content_type='application/pdf')
+				response['Content-Disposition'] = 'filename=deposition_summary.pdf'
+				return response
+		elif type == "docx":
+			docx_url = f"{settings.SUMMARY_URL}{id}.docx"
+			if not os.path.isfile(docx_url):
+				conv = Converter(url)
+				conv.convert(docx_url)
+				conv.close()
+			with open(docx_url, 'rb') as docx:
+				response = HttpResponse(docx.read(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+				response['Content-Disposition'] = 'filename=deposition_summary.docx'
+				return response
+		else:
+			raise ValueError()
 	except FileNotFoundError:
 		try:
 			#check for summary in progress
@@ -161,6 +178,14 @@ def out(request):
 				return HttpResponseServerError("Unknown error")
 		except KeyError:
 			return HttpResponse("No input file found, summarize a file first", status=409)
+
+#provides output pdf
+def out(request):
+	return get_out(request, "pdf")
+
+#provide output as docx		
+def out_docx(request):
+	return get_out(request, "docx")
 
 #efficiently checks if summary is in progress
 def verify(request):

@@ -15,4 +15,6 @@ for file in os.listdir(SUMMARY_URL):
         key = file[:-4]
         os.remove(SUMMARY_URL + file)
         os.remove(DEPO_URL + file)
+        if os.path.isfile(DEPO_URL + key + ".docx"):
+            os.remove(DEPO_URL + key + ".docx")
         shutil.rmtree(CHROMA_URL + key)

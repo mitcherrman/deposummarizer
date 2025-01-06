@@ -10,3 +10,5 @@ JohnSmithdemodeposition-1.pdf
 upload.sh
 scripts
 gunicorn
+db.sqlite3
+.DS_Store

@@ -1,4 +1,3 @@
-fitz
 pymupdf
 reportlab
 langchain
