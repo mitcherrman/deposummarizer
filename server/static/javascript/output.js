@@ -8,14 +8,15 @@ function checkSummary() {
     fetch("out/verify").then((response) => {
         if (response.status != 200) {
             clearInterval(checkSummaryIntervalId);
+            let parent = document.querySelector(".summary-container");
             let load = document.getElementById("loading");
-            let parent = load.parentElement;
             let frame = document.createElement("iframe");
             frame.setAttribute("src", "/out");
-            frame.style.setProperty('width', "75%");
+            frame.style.setProperty('width', "99%");
             frame.style.setProperty("aspect-ratio", "3 / 2");
-            parent.replaceChild(frame, load);
-            document.querySelector(".chat-container").removeAttribute("hidden");
+            parent.prepend(frame);
+            document.querySelector(".body-container").removeAttribute("hidden");
+            load.parentNode.removeChild(load);
         }
     });
 }
@@ -74,3 +75,9 @@ document.getElementById("question").addEventListener("keydown", (event) => {
         document.getElementById("question").blur();
     }
 });
+
+function changeDownloadFormat() {
+    let data = document.getElementById("summary-download-option").value;
+    let download_elem = document.querySelector("summary-download-button");
+    download_elem.setAttribute("href", "out/" + data);
+}
