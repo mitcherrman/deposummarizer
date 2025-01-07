@@ -78,6 +78,6 @@ document.getElementById("question").addEventListener("keydown", (event) => {
 
 function changeDownloadFormat() {
     let data = document.getElementById("summary-download-option").value;
-    let download_elem = document.querySelector("summary-download-button");
+    let download_elem = document.querySelector(".summary-download-button");
     download_elem.setAttribute("href", "out/" + data);
 }
