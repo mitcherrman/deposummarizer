@@ -1,5 +1,19 @@
 checkSummaryIntervalId = 0
 
+function init() {
+    startCheckThread();
+    includeChat();
+}
+
+function includeChat() {
+    msgBox = document.querySelector(".chat-messages");
+    fetch("chat").then((response) => {
+        return response.text();
+    }).then((text) => {
+        msgBox.innerHTML = text;
+    });
+}
+
 function startCheckThread() {
     checkSummaryIntervalId = setInterval(checkSummary, 1000);
 }

@@ -36,7 +36,7 @@
             </a>
         </h3>
         <div class="chat-messages">
-
+            
         </div>
         <form class="chat-question" id="chat-question">
             {% csrf_token %}
@@ -47,14 +47,14 @@
 </div>
 <script src="{% static 'javascript/output.js' %}"></script>
 <script>
-    startCheckThread();
+    init();
 </script>
-<script>
+<!--script>
     createMessageBubble("This is a very long test message. A very very very long test message.", true);
     createMessageBubble("This is a very long test message. A very very very long test message.", false);
     createMessageBubble("This is a very long test message. A very very very long test message.", true, true);
     createMessageBubble("This is a very long test message. A very very very long test message.", false, true);
     createMessageBubble("This is a very long test message. A very very very long test message.", true);
     createMessageBubble("This is a very long test message. A very very very long test message.", false);
-</script>
+</script-->
 {% endblock %}

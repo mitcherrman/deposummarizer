@@ -1,6 +1,7 @@
 from django.http import HttpResponse, HttpResponseNotFound, HttpResponseNotAllowed, HttpResponseServerError, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
+import django.template.loader as ld
 from server.summary.summarizer import create_summary
 from server.summary.deposition_chatbot import askQuestion
 import shutil, os
@@ -85,6 +86,18 @@ def ask(request):
 		return HttpResponseServerError("Something went wrong with the OpenAI call, please try again later.")
 	request.session['prompt_append'] = response[1]
 	return HttpResponse(response[0])
+
+def chat_html(request):
+	if request.method != 'GET':
+		return HttpResponseNotAllowed(['GET'])
+	try:
+		log = request.session['prompt_append']
+	except:
+		return HttpResponse()
+	ret = ""
+	for line in log:
+		ret += ld.render_to_string('chat_message.html', {'outgoing': line['role'] == 'user', 'message': line['content']})
+	return HttpResponse(ret)
 
 #returns a transcript of the chat dialog
 def transcript(request):

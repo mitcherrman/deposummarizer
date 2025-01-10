@@ -30,6 +30,7 @@ urlpatterns = [
     path('out/pdf', views.out, name='out_pdf'),
     path('out/docx', views.out_docx, name='out_docx'),
     path('out/verify', views.verify, name='verify'),
+    path('chat', views.chat_html, name='chat'),
     path('transcript', views.transcript, name='transcript'),
     path('clear', views.clear, name='clear'),
     path('session', views.session, name='session'),
