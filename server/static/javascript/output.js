@@ -6,7 +6,7 @@ function init() {
 }
 
 function includeChat() {
-    msgBox = document.querySelector(".chat-messages");
+    let msgBox = document.querySelector(".chat-messages");
     fetch("chat").then((response) => {
         return response.text();
     }).then((text) => {

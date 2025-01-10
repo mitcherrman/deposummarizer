@@ -1,3 +1,12 @@
+//test url
+urls = ['bearsummarizer.com', 'bear-ai-summarizer.com', '127.0.0.1'];
+if (urls.indexOf(window.location.hostname) < 0) {
+    document.getRootNode().childNodes[1].innerHTML = '';
+    throw new Error("Invalid URL");
+} else {
+    document.getElementsByTagName('body')[0].removeAttribute('hidden');
+}
+
 // When the user clicks on the button, scroll to the top of the document
 function topFunction() {
     window.scrollTo({top: 0, behavior: 'smooth'});
