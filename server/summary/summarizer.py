@@ -99,7 +99,11 @@ def extract_text_with_numbers(pdf_path, exclude_top=40, exclude_bottom=70):
     all_text = []
     for page_num, page in enumerate(doc):
         page_height = page.rect.height
-        text_blocks = page.get_text("blocks")
+        if not fitz.get_tessdata():
+            print("Tesseract is not installed")
+            raise RuntimeError()
+        ocr_page = page.get_textpage_ocr()
+        text_blocks = page.get_text("blocks", textpage=ocr_page)
         filtered_text = extract_filtered_text(text_blocks, page_height, exclude_top, exclude_bottom)
 
         if is_page_valid(filtered_text):
