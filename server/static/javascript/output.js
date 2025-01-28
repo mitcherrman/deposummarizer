@@ -1,10 +1,12 @@
 checkSummaryIntervalId = 0
 
+//called in rendering
 function init() {
     startCheckThread();
     includeChat();
 }
 
+//restores chat history
 function includeChat() {
     let msgBox = document.querySelector(".chat-messages");
     fetch("chat").then((response) => {
@@ -18,6 +20,7 @@ function startCheckThread() {
     checkSummaryIntervalId = setInterval(checkSummary, 1000);
 }
 
+//checks for complete summary, called periodically
 function checkSummary() {
     fetch("out/verify").then((response) => {
         if (response.status != 200) {
@@ -35,6 +38,7 @@ function checkSummary() {
     });
 }
 
+//adds message bubble to chatbox
 function createMessageBubble(text, out, error=false) {
     let bubble = document.createElement("p");
     bubble.classList.add("chat-messages-bubble");
@@ -50,7 +54,9 @@ function createMessageBubble(text, out, error=false) {
     document.querySelector(".chat-messages").appendChild(bubble);
 }
 
+//called when question asked to chatbot
 function submitQuestion() {
+    //adjust visuals
     let data = new FormData(document.querySelector(".chat-question"));
     createMessageBubble(data.get("question"), true);
     let box = document.querySelector(".chat-messages");
@@ -58,6 +64,7 @@ function submitQuestion() {
     let ok = true;
     let textbox = document.getElementById("question");
     textbox.setAttribute("disabled","");
+    //api call
     fetch("ask", {
         method: "POST",
         body: data
@@ -65,6 +72,7 @@ function submitQuestion() {
         ok = response.ok;
         return response.text();
     }).then((answer) => {
+        //adjust visuals/include message
         let jumpBottom = box.scrollTop >= box.scrollHeight-box.offsetHeight-1;
         createMessageBubble(answer, false, !ok);
         if (jumpBottom) {
@@ -74,13 +82,15 @@ function submitQuestion() {
             document.querySelector(".chat-download-button").removeAttribute("hidden");
         }
     }).catch((exc) => {
-        createMessageBubble("It appears the server did not respond properly, check console log for more details.", false, true);
+        //error chat message
+        createMessageBubble("It appears the server did not respond properly, please try again later.", false, true);
         throw exc;
     }).finally(() => {
         textbox.removeAttribute("disabled");
     });
 }
 
+//submit question via keypad
 document.getElementById("question").addEventListener("keydown", (event) => {
     if (event.key == "Enter") {
         let form = document.getElementById("chat-question");
@@ -90,6 +100,7 @@ document.getElementById("question").addEventListener("keydown", (event) => {
     }
 });
 
+//change download format depending on dropbox value
 function changeDownloadFormat() {
     let data = document.getElementById("summary-download-option").value;
     let download_elem = document.querySelector(".summary-download-button");

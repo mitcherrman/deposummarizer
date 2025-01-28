@@ -14,7 +14,9 @@ for file in os.listdir(SUMMARY_URL):
     if os.path.isfile(SUMMARY_URL + file) and time.time() - os.path.getmtime(SUMMARY_URL + file) > FILE_EXPIRY_TIME:
         key = file[:-4]
         os.remove(SUMMARY_URL + file)
-        os.remove(DEPO_URL + file)
+        if os.path.isfile(DEPO_URL + file):
+            os.remove(DEPO_URL + file)
         if os.path.isfile(DEPO_URL + key + ".docx"):
             os.remove(DEPO_URL + key + ".docx")
-        shutil.rmtree(CHROMA_URL + key)
+        if os.path.isdir(CHROMA_URL + key):
+            shutil.rmtree(CHROMA_URL + key)

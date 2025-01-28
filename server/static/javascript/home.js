@@ -1,3 +1,4 @@
+//called when summarize button is pressed
 function validateForm() {
   var fileInput = document.getElementById('fileInput');
   if (!fileInput.value) {
@@ -12,6 +13,7 @@ function validateForm() {
   return true;
 }
 
+//checks if summary already exists, called when page loaded
 function checkForSummary() {
   let currUrl = window.location.href;
   fetch(currUrl.substring(0,currUrl.length-4) + "out", {

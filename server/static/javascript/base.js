@@ -12,6 +12,7 @@ function topFunction() {
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
+//"scroll to top" button appear/disappear
 addEventListener('scroll', (event) => {
     if (window.scrollY <= 0) {
         let btn = document.getElementById('goToTopBtn');
