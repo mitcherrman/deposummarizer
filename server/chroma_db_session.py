@@ -16,10 +16,12 @@ class SessionStore(Dbss):
             if self.session_key is None:
                 return
             session_key = self.session_key
-        if os.path.isdir(settings.CHROMA_URL + session_key):
-            shutil.rmtree(settings.CHROMA_URL + session_key)
+        if os.path.isdir(f"{settings.CHROMA_URL}{session_key}"):
+            shutil.rmtree(f"{settings.CHROMA_URL}{session_key}")
         if os.path.isfile(f"{settings.SUMMARY_URL}{session_key}.pdf"):
             os.remove(f"{settings.SUMMARY_URL}{session_key}.pdf")
+        if os.path.isfile(f"{settings.DEPO_URL}{session_key}.pdf"):
+            os.remove(f"{settings.DEPO_URL}{session_key}.pdf")
         super().delete(session_key)
     
     async def adelete(self, session_key=None):
@@ -27,10 +29,12 @@ class SessionStore(Dbss):
             if self.session_key is None:
                 return
             session_key = self.session_key
-        if os.path.isdir(settings.CHROMA_URL + session_key):
-            shutil.rmtree(settings.CHROMA_URL + session_key)
-        if os.path.isfile(f"{config('OUTPUT_FILE_PATH')}/{session_key}.pdf"):
-            os.remove(f"{config('OUTPUT_FILE_PATH')}/{session_key}.pdf")
+        if os.path.isdir(f"{settings.CHROMA_URL}{session_key}"):
+            shutil.rmtree(f"{settings.CHROMA_URL}{session_key}")
+        if os.path.isfile(f"{settings.SUMMARY_URL}{session_key}.pdf"):
+            os.remove(f"{settings.SUMMARY_URL}{session_key}.pdf")
+        if os.path.isfile(f"{settings.DEPO_URL}{session_key}.pdf"):
+            os.remove(f"{settings.DEPO_URL}{session_key}.pdf")
         await super().adelete(session_key)
 
     def cycle_key(self):
@@ -39,13 +43,13 @@ class SessionStore(Dbss):
         self.create()
         self._session_cache = data
         if key:
+            if os.path.isdir(f"{settings.CHROMA_URL}{key}"):
+                os.rename(f"{settings.CHROMA_URL}{key}", f"{settings.CHROMA_URL}{self.session_key}")
+            if os.path.isfile(f"{settings.SUMMARY_URL}{key}.pdf"):
+                os.rename(f"{settings.SUMMARY_URL}{key}.pdf", f"{settings.SUMMARY_URL}{self.session_key}.pdf")
+            if os.path.isfile(f"{settings.DEPO_URL}{key}.pdf"):
+                os.rename(f"{settings.DEPO_URL}{key}.pdf", f"{settings.DEPO_URL}{self.session_key}.pdf")
             super().delete(key)
-        if os.path.isdir(settings.CHROMA_URL + key):
-            os.rename(settings.CHROMA_URL + key, settings.CHROMA_URL + self.session_key)
-        if os.path.isfile(f"{settings.SUMMARY_URL}{key}.pdf"):
-            os.rename(f"{settings.SUMMARY_URL}{key}.pdf", f"{settings.SUMMARY_URL}{self.session_key}.pdf")
-        if os.path.isfile(f"{settings.DEPO_URL}{key}.pdf"):
-            os.rename(f"{settings.DEPO_URL}{key}.pdf", f"{settings.DEPO_URL}{self.session_key}.pdf")
 
     async def acycle_key(self):
         data = await self._aget_session()
@@ -53,13 +57,13 @@ class SessionStore(Dbss):
         await self.acreate()
         self._session_cache = data
         if key:
+            if os.path.isdir(f"{settings.CHROMA_URL}{key}"):
+                os.rename(f"{settings.CHROMA_URL}{key}", f"{settings.CHROMA_URL}{self.session_key}")
+            if os.path.isfile(f"{settings.SUMMARY_URL}{key}.pdf"):
+                os.rename(f"{settings.SUMMARY_URL}{key}.pdf", f"{settings.SUMMARY_URL}{self.session_key}.pdf")
+            if os.path.isfile(f"{settings.DEPO_URL}{key}.pdf"):
+                os.rename(f"{settings.DEPO_URL}{key}.pdf", f"{settings.DEPO_URL}{self.session_key}.pdf")
             await super().adelete(key)
-        if os.path.isdir(settings.CHROMA_URL + key):
-            os.rename(settings.CHROMA_URL + key, settings.CHROMA_URL + self.session_key)
-        if os.path.isfile(f"{settings.SUMMARY_URL}{key}.pdf"):
-            os.rename(f"{settings.SUMMARY_URL}{key}.pdf", f"{settings.SUMMARY_URL}{self.session_key}.pdf")
-        if os.path.isfile(f"{settings.DEPO_URL}{key}.pdf"):
-            os.rename(f"{settings.DEPO_URL}{key}.pdf", f"{settings.DEPO_URL}{self.session_key}.pdf")
     
     def clear(self):
         super().clear()

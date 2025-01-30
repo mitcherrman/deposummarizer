@@ -2,6 +2,8 @@ from django.http import HttpResponse, HttpResponseNotFound, HttpResponseNotAllow
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 import django.template.loader as ld
+from django.contrib.auth import login, logout, authenticate
+from django.contrib.auth.models import User
 from server.summary.summarizer import create_summary
 from server.summary.deposition_chatbot import askQuestion
 import shutil, os
@@ -208,6 +210,53 @@ def verify(request):
 		return HttpResponse("Summary in progress.")
 	return HttpResponse("Summary not in progress.", status=418) #no error code for "task failed successfully"
 
+#creates an account
+def create_account(request):
+	if request.method != 'POST':
+		return HttpResponseNotAllowed(['POST'])
+	user = request.POST.get('username')
+	email = request.POST.get('email')
+	password = request.POST.get('password')
+	#check if user exists
+	#check for valid inputs
+	if not user or not password:
+		return redirect("/new?msg=1")
+	if User.objects.filter(username=user).exists():
+		return redirect("/new?msg=2")
+	auth = User.objects.create_user(user, email or None, password)
+	login(request, auth)
+	return redirect("/home")
+
+#authenticates a user and logs in if valid
+def auth(request):
+	if request.method != 'POST':
+		return HttpResponseNotAllowed(['POST'])
+	user = request.POST.get('username')
+	password = request.POST.get('password')
+	auth = authenticate(username=user, password=password)
+	if auth is not None:
+		login(request, auth)
+		return redirect("/home")
+	else:
+		return redirect(f"{settings.LOGIN_URL}?msg=1")
+
+#logs user out
+def logout_user(request):
+	if request.method != 'POST':
+		return HttpResponseNotAllowed(['POST'])
+	logout(request)
+	return redirect(settings.LOGIN_URL)
+
+#deletes account
+def delete_account(request):
+	if request.method != 'POST':
+		return HttpResponseNotAllowed(['POST'])
+	user = request.user
+	logout(request)
+	if user is not None:
+		user.delete()
+	return redirect(settings.LOGIN_URL)
+
 # --- template views ---
 		
 def home(request):
@@ -229,3 +278,15 @@ def output(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
 	return render(request, "output.html")
+
+def login_page(request):
+	if request.method != 'GET':
+		return HttpResponseNotAllowed(['GET'])
+	if request.user is None or not request.user.is_authenticated:
+		return render(request, "login.html", request.GET)
+	return redirect(home)
+
+def new_account(request):
+	if request.method != 'GET':
+		return HttpResponseNotAllowed(['GET'])
+	return render(request, "new.html", request.GET)

@@ -1,0 +1,26 @@
+.login-container {
+    display: flex;
+    flex-direction: row-reverse;
+}
+
+.login-box {
+    width: 15em;
+    background-color: #D2B48C;
+    padding: 10px;
+    border-radius: 5px;
+    box-shadow: 2px 2px 2px #ad6735;
+}
+
+.password-warning {
+    background-color: #FFCCCC;
+    padding: 4px;
+    border-radius: 3px;
+}
+
+.form-control {
+    margin-bottom: .25rem;
+}
+
+.login-btn {
+    margin-top: .5rem;
+}

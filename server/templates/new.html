@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% load static %} <!-- Load static files -->
+
+{% block links %}
+<link rel="stylesheet" href="{% static '/styles/new.css' %}">
+{% endblock %}
+
+{% block title %} Login | Deposum {% endblock %}
+{% block content %}
+<h3>
+  Create account:
+</h3>
+<div class="login-container">
+  <form method="POST" class="login-box" id="form" enctype="multipart/form-data" action="{% url 'create' %}">
+    {% if msg %}
+    <p class="password-warning">
+      {% if msg.0 == "1" %}
+      Please enter a username and password.
+      {% elif msg.0 == "2" %}
+      Username is already taken.
+      {% endif %}
+    </p>
+    {% endif %}
+    {% csrf_token %}
+    <label class="login-label" for="username">Username:</label>
+    <input type="text" class="form-control" id="username" name="username" required>
+    <label class="login-label" for="password">Password:</label>
+    <input type="password" class="form-control" id="password" name="password" required>
+    <button type="submit" class="btn btn-primary login-btn" id="btnClicked" Login>Create account</button>
+  </form>
+</div>
+
+{% endblock %}

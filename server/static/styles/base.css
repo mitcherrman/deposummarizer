@@ -23,6 +23,19 @@ body {
   background-color: #ad6735; /* Darker brown for hover */
 }
 
+.logout {
+  background-color: transparent;
+  border-width: 0;
+}
+
+.log-btn {
+  font-style: italic;
+}
+
+.log-text {
+  font-style: normal;
+}
+
 /* Content area */
 .container {
   background-color: #FAF0E6; /* Light Linen color for the content area */

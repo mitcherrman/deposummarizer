@@ -11,6 +11,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from decouple import config
 from threading import Lock
 from django.conf import settings
+from chromadb.api.client import SharedSystemClient
 
 LOAD_DB_FROM_FOLDER = True
 DB_PIECE_SIZE = 1
@@ -33,6 +34,7 @@ def initBot(fullText, id):
     pieces = split.split_text(fullText)
     #loads database from folder if possible, not used in production but helpful when testing to save on api calls
     with db_lock:
+        SharedSystemClient.clear_system_cache()
         if LOAD_DB_FROM_FOLDER and os.path.isdir(persist_path):
             print(f"[{id}]: Saved vector database found, loading from file...")
             vectordb = Chroma(persist_directory=persist_path, embedding_function=embedding)
