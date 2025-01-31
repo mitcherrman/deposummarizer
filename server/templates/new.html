@@ -26,7 +26,12 @@
     <input type="text" class="form-control" id="username" name="username" required>
     <label class="login-label" for="password">Password:</label>
     <input type="password" class="form-control" id="password" name="password" required>
-    <button type="submit" class="btn btn-primary login-btn" id="btnClicked" Login>Create account</button>
+    <label class="login-label" for="password">Confirm Password:</label>
+    <input type="password" class="form-control" id="password-confirm" name="password-confirm" required>
+    <script src="{% static 'javascript/new.js' %}"></script>
+    <p class="password-warning bottom-warning" id="warning-box" hidden>
+    </p>
+    <button type="submit" class="btn btn-primary login-btn" id="create-btn" disabled>Create account</button>
   </form>
 </div>
 

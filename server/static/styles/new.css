@@ -17,6 +17,11 @@
     border-radius: 3px;
 }
 
+.bottom-warning {
+    margin-top: 10px;
+    margin-bottom: 0;
+}
+
 .form-control {
     margin-bottom: .25rem;
 }
