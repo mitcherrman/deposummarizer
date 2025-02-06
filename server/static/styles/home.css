@@ -1,9 +1,9 @@
 .output-url {
     font-style: italic;
-    margin-top: 20px
+    margin-top: 20px;
 }
 
 .form-control {
-  display: grid;
-  padding-bottom: 10px;
+  min-height: calc(1.5em + .75rem + 2px);
+  height: unset;
 }

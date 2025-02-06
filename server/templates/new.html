@@ -5,11 +5,17 @@
 <link rel="stylesheet" href="{% static '/styles/new.css' %}">
 {% endblock %}
 
-{% block title %} Login | Deposum {% endblock %}
+{% block title %} Create Account | Deposum {% endblock %}
 {% block content %}
 <h3>
   Create account:
 </h3>
+<i class="create">
+  Already have an account? 
+  <a href="login">
+    login
+  </a>
+</i>
 <div class="login-container">
   <form method="POST" class="login-box" id="form" enctype="multipart/form-data" action="{% url 'create' %}">
     {% if msg %}
