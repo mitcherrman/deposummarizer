@@ -13,6 +13,10 @@ from langchain_core.output_parsers import StrOutputParser
 from decouple import config
 import server.summary.deposition_chatbot as cb  # Reintroducing chatbot
 from django.conf import settings
+from importlib import import_module
+from server.util import session_lock
+
+session_engine = import_module(settings.SESSION_ENGINE)
 
 # Set up logging
 logging.basicConfig(level=logging.INFO)
@@ -192,6 +196,7 @@ def summarize_deposition_text(text):
 def summarize_deposition(text_pages, id):
     summaries = []  # Use a list to store summaries in order
     for page_num, page in enumerate(text_pages, start=1):
+        update_status_msg(id, f"Summarizing page {page_num} of {len(text_pages)}...")
         if len(page) > 150:
             summary = summarize_deposition_text(page)
             summaries.append(summary)  # Store summaries in the list in order
@@ -205,6 +210,13 @@ def split_text_by_page(text):
     pages = [page if i == 0 else 'Page ' + page for i, page in enumerate(pages)]
     return pages
 
+def update_status_msg(id, msg):
+    with session_lock:
+        session = session_engine.SessionStore(id)
+        if session.exists(id):
+            session['status_msg'] = msg
+            session.save()
+
 # Orchestrates the entire summary process: from removing marginal text, extracting text, splitting it into pages,
 # summarizing it, and writing the final summaries to a PDF.
 def create_summary(request, id):
@@ -215,6 +227,7 @@ def create_summary(request, id):
 
     try:
         logging.info(f"Processing file: {file_path}")
+        update_status_msg(id, "Extracting text...")
 
         # Clean up marginal text
         #cleaned_pdf_path = f"cleaned_{os.path.basename(file_path)}"
@@ -222,11 +235,13 @@ def create_summary(request, id):
 
         raw_text = extract_text_with_numbers(file_path)
 
-        # Initialize chatbot for processing
-        l = cb.initBot(raw_text, id)
-
         text_pages = split_text_by_page(raw_text)
+
+        # Initialize chatbot for processing
+        update_status_msg(id, "Configuring chatbot...")
+        l = cb.initBot(raw_text, id)
         
+        update_status_msg(id, "Starting summary...")
         if not settings.TEST_WITHOUT_AI:
             summarized_pages = summarize_deposition(text_pages, id)
             write_summaries_to_pdf(summarized_pages, f"{settings.SUMMARY_URL}{id}.pdf")
@@ -234,6 +249,7 @@ def create_summary(request, id):
             write_summaries_to_pdf(text_pages[0:5], f"{settings.SUMMARY_URL}{id}.pdf")
 
         logging.info(f"[{id}]: Summary saved to: {settings.SUMMARY_URL}{id}.pdf")
+        update_status_msg(id, "Finishing up...")
         return l
     except:
         return -2

@@ -126,7 +126,7 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, "server/static")]
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-TEST_WITHOUT_AI = True #if set to true, does not recreate database and generates dummy summary to save on API calls, set to false in production
+TEST_WITHOUT_AI = False #if set to true, does not recreate database and generates dummy summary to save on API calls, set to false in production
 
 CHROMA_URL = config("CHROMA_URL") #path to store chroma vector databases
 

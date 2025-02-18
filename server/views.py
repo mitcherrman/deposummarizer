@@ -7,18 +7,16 @@ from django.contrib.auth.models import User
 from server.summary.summarizer import create_summary
 from server.summary.deposition_chatbot import askQuestion
 import shutil, os
-from threading import Thread, Lock
+from threading import Thread
 from importlib import import_module
 import json
 from decouple import config
 from django.shortcuts import render, redirect
 from pdf2docx import Converter
 import os
+from server.util import session_lock
 
 session_engine = import_module(settings.SESSION_ENGINE)
-
-#session lock used by thread, should be used by anything else that may modify session during summary process
-session_lock = Lock()
 
 # --- backend views ---
 
@@ -64,7 +62,9 @@ def summarize(request):
 				s['db_len'] = l
 				s.save()
 	t = Thread(target=r,args=[id])
-	t.start()
+	with session_lock:
+		t.start()
+		request.session.save()
 	return redirect(output)
 
 #ask a question to the chatbot, requires summary to have been done first
@@ -207,7 +207,7 @@ def verify(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
 	if request.session and request.session['db_len'] == -1:
-		return HttpResponse("Summary in progress.")
+		return HttpResponse(request.session['status_msg'] if request.session['status_msg'] else "Working...") #body used by frontend for status message
 	return HttpResponse("Summary not in progress.", status=418) #no error code for "task failed successfully"
 
 #creates an account

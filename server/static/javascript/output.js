@@ -34,6 +34,10 @@ function checkSummary() {
             parent.prepend(frame);
             document.querySelector(".body-container").removeAttribute("hidden");
             load.parentNode.removeChild(load);
+        } else {
+            response.text().then((text) => {
+                document.getElementById("status_msg").textContent = text;
+            })
         }
     });
 }
