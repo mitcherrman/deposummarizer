@@ -12,3 +12,10 @@ In order to run this website locally, a `.env` file is required to configure cer
 - `SECRET_KEY`: the secret key to be used by Django in production
 
 In addition, this repository contains a script called `hourly.py`, which should be run hourly when the web server is active.
+
+## Using DSPY
+pip install dspy
+pip install -U dspy
+pip install sentence transformers
+
+install dspy to python and to powershell virtual environment. 
