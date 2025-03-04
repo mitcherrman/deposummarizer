@@ -15,6 +15,8 @@ from django.shortcuts import render, redirect
 from pdf2docx import Converter
 import os
 from server.util import session_lock
+import io
+import base64
 
 session_engine = import_module(settings.SESSION_ENGINE)
 
@@ -29,35 +31,31 @@ def summarize(request):
 	id = request.session.session_key
 	#check if summary already started
 	try:
-		if request.session['db_len'] == -1 and not os.path.isfile(f"{settings.SUMMARY_URL}{id}.pdf"):
+		if request.session['db_len'] == -1:
 			return HttpResponse("Summary in progress, please wait.", status=409)
 	except: pass
 	if not (request.FILES and request.FILES['file']):
 		HttpResponseBadRequest("Malformed request, should contain a file called \"file\"")
 	request.session['db_len'] = -1
 	request.session['prompt_append'] = []
-	request.session.save() #make db_len = -1 visible to other views before clearing files
+	
 	#clean up previous summaries
 	dirname = settings.CHROMA_URL + id
 	if not settings.TEST_WITHOUT_AI:
 		if os.path.isdir(dirname): shutil.rmtree(dirname)
-	if os.path.isfile(f"{settings.SUMMARY_URL}{id}.pdf"):
-		os.remove(f"{settings.SUMMARY_URL}{id}.pdf")
-	if os.path.isfile(f"{settings.SUMMARY_URL}{id}.docx"):
-		os.remove(f"{settings.SUMMARY_URL}{id}.docx")
-	if os.path.isfile(f"{settings.DEPO_URL}{id}.pdf"):
-		os.remove(f"{settings.DEPO_URL}{id}.pdf")
-	#write input file to storage
+	
+	#store input file in session as base64
 	file = request.FILES['file']
-	with open(f"{settings.DEPO_URL}{id}.pdf", 'w+b') as loc:
-		for chunk in file.chunks():
-			loc.write(chunk)
+	pdf_data = file.read()
+	request.session['depo_pdf'] = base64.b64encode(pdf_data).decode('utf-8')
+	request.session.save()
+
 	#start summarizing thread
-	def r(id): #note: session key cannot change during this thread's execution (relevant for authentication if it's implemented)
-		l = create_summary(f"{settings.DEPO_URL}{id}.pdf", id)
-		request.session['db_len'] = l #in case this thread somehow ends before view
+	def r(id):
+		l = create_summary(pdf_data, id)
+		request.session['db_len'] = l
 		with session_lock:
-			s = session_engine.SessionStore(id) #is there a cleaner way to do this?
+			s = session_engine.SessionStore(id)
 			if s.exists(id):
 				s['db_len'] = l
 				s.save()
@@ -138,6 +136,11 @@ def cyclekey(request):
 def clear(request):
 	if request.method != 'POST':
 		return HttpResponseNotAllowed(['POST'])
+	id = request.session.session_key
+	if id:
+		dirname = settings.CHROMA_URL + id
+		if os.path.isdir(dirname):
+			shutil.rmtree(dirname)
 	request.session.clear()
 	return HttpResponse("session cleared")
 
@@ -149,7 +152,7 @@ def get_out(request, type):
 		request.session.save()
 	id = request.session.session_key
 	if request.method == 'HEAD':
-		if os.path.isfile(f"{settings.SUMMARY_URL}{id}.pdf"):
+		if 'summary_pdf' in request.session:
 			return HttpResponse()
 		elif not request.session.get('db_len') or request.session['db_len'] == -1:
 			return HttpResponse(status=409)
@@ -158,27 +161,26 @@ def get_out(request, type):
 		else:
 			return HttpResponseServerError()
 	try:
-		#open summary file
-		url = f"{settings.SUMMARY_URL}{id}.pdf"
-		print(f"[{id}]: {url}")
 		if type == "pdf":
-			with open(url, 'rb') as pdf:
-				response = HttpResponse(pdf.read(), content_type='application/pdf')
-				response['Content-Disposition'] = 'filename=deposition_summary.pdf'
-				return response
+			pdf_data = base64.b64decode(request.session['summary_pdf'])
+			response = HttpResponse(pdf_data, content_type='application/pdf')
+			response['Content-Disposition'] = 'filename=deposition_summary.pdf'
+			return response
 		elif type == "docx":
-			docx_url = f"{settings.SUMMARY_URL}{id}.docx"
-			if not os.path.isfile(docx_url):
-				conv = Converter(url)
-				conv.convert(docx_url)
-				conv.close()
-			with open(docx_url, 'rb') as docx:
-				response = HttpResponse(docx.read(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-				response['Content-Disposition'] = 'filename=deposition_summary.docx'
-				return response
+			# Convert PDF data to DOCX
+			pdf_data = base64.b64decode(request.session['summary_pdf'])
+			pdf_buffer = io.BytesIO(pdf_data)
+			docx_buffer = io.BytesIO()
+			conv = Converter(stream=pdf_buffer)
+			conv.convert(docx_buffer)
+			conv.close()
+			docx_buffer.seek(0)
+			response = HttpResponse(docx_buffer.read(), content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+			response['Content-Disposition'] = 'filename=deposition_summary.docx'
+			return response
 		else:
 			raise ValueError()
-	except FileNotFoundError:
+	except KeyError:
 		try:
 			#check for summary in progress
 			if request.session['db_len'] == -1:

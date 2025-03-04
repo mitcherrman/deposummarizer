@@ -18,7 +18,7 @@ import os
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -129,10 +129,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 TEST_WITHOUT_AI = False #if set to true, does not recreate database and generates dummy summary to save on API calls, set to false in production
 
 CHROMA_URL = config("CHROMA_URL") #path to store chroma vector databases
-
-SUMMARY_URL = config("SUMMARY_URL") #path to store chroma vector databases
-
-DEPO_URL = config("DEPO_URL") #path to store submitted depositions
 
 SESSION_ENGINE = 'server.chroma_db_session'
 

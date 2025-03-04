@@ -5,7 +5,7 @@ import os, shutil
 
 class SessionStore(Dbss):
     """
-    A session engine that extends the default database engine functionality by storing chroma databases and summary PDFs in the filesystem.
+    A session engine that extends the default database engine functionality by managing the Chroma database directory.
     """
 
     def __init__(self, session_key=None):
@@ -18,10 +18,6 @@ class SessionStore(Dbss):
             session_key = self.session_key
         if os.path.isdir(f"{settings.CHROMA_URL}{session_key}"):
             shutil.rmtree(f"{settings.CHROMA_URL}{session_key}")
-        if os.path.isfile(f"{settings.SUMMARY_URL}{session_key}.pdf"):
-            os.remove(f"{settings.SUMMARY_URL}{session_key}.pdf")
-        if os.path.isfile(f"{settings.DEPO_URL}{session_key}.pdf"):
-            os.remove(f"{settings.DEPO_URL}{session_key}.pdf")
         super().delete(session_key)
     
     async def adelete(self, session_key=None):
@@ -31,10 +27,6 @@ class SessionStore(Dbss):
             session_key = self.session_key
         if os.path.isdir(f"{settings.CHROMA_URL}{session_key}"):
             shutil.rmtree(f"{settings.CHROMA_URL}{session_key}")
-        if os.path.isfile(f"{settings.SUMMARY_URL}{session_key}.pdf"):
-            os.remove(f"{settings.SUMMARY_URL}{session_key}.pdf")
-        if os.path.isfile(f"{settings.DEPO_URL}{session_key}.pdf"):
-            os.remove(f"{settings.DEPO_URL}{session_key}.pdf")
         await super().adelete(session_key)
 
     def cycle_key(self):
@@ -45,10 +37,6 @@ class SessionStore(Dbss):
         if key:
             if os.path.isdir(f"{settings.CHROMA_URL}{key}"):
                 os.rename(f"{settings.CHROMA_URL}{key}", f"{settings.CHROMA_URL}{self.session_key}")
-            if os.path.isfile(f"{settings.SUMMARY_URL}{key}.pdf"):
-                os.rename(f"{settings.SUMMARY_URL}{key}.pdf", f"{settings.SUMMARY_URL}{self.session_key}.pdf")
-            if os.path.isfile(f"{settings.DEPO_URL}{key}.pdf"):
-                os.rename(f"{settings.DEPO_URL}{key}.pdf", f"{settings.DEPO_URL}{self.session_key}.pdf")
             super().delete(key)
 
     async def acycle_key(self):
@@ -59,10 +47,6 @@ class SessionStore(Dbss):
         if key:
             if os.path.isdir(f"{settings.CHROMA_URL}{key}"):
                 os.rename(f"{settings.CHROMA_URL}{key}", f"{settings.CHROMA_URL}{self.session_key}")
-            if os.path.isfile(f"{settings.SUMMARY_URL}{key}.pdf"):
-                os.rename(f"{settings.SUMMARY_URL}{key}.pdf", f"{settings.SUMMARY_URL}{self.session_key}.pdf")
-            if os.path.isfile(f"{settings.DEPO_URL}{key}.pdf"):
-                os.rename(f"{settings.DEPO_URL}{key}.pdf", f"{settings.DEPO_URL}{self.session_key}.pdf")
             await super().adelete(key)
     
     def clear(self):
@@ -70,7 +54,3 @@ class SessionStore(Dbss):
         dirname = settings.CHROMA_URL + self.session_key
         if os.path.isdir(dirname):
             shutil.rmtree(dirname)
-        if os.path.isfile(f"{settings.SUMMARY_URL}{self.session_key}.pdf"):
-            os.remove(f"{settings.SUMMARY_URL}{self.session_key}.pdf")
-        if os.path.isfile(f"{settings.DEPO_URL}{self.session_key}.pdf"):
-            os.remove(f"{settings.DEPO_URL}{self.session_key}.pdf")

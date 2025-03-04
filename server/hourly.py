@@ -8,15 +8,14 @@ CHROMA_URL = config("CHROMA_URL") #path to store chroma vector databases
 SUMMARY_URL = config("SUMMARY_URL") #path to store chroma vector databases
 DEPO_URL = config("DEPO_URL") #path to store submitted depositions
 
-FILE_EXPIRY_TIME = 86400 #1 day
+FILE_EXPIRY_TIME = 60 * 60 * 24 #24 hours
 
-for file in os.listdir(SUMMARY_URL):
-    if os.path.isfile(SUMMARY_URL + file) and time.time() - os.path.getmtime(SUMMARY_URL + file) > FILE_EXPIRY_TIME:
-        key = file[:-4]
-        os.remove(SUMMARY_URL + file)
-        if os.path.isfile(DEPO_URL + file):
-            os.remove(DEPO_URL + file)
-        if os.path.isfile(DEPO_URL + key + ".docx"):
-            os.remove(DEPO_URL + key + ".docx")
-        if os.path.isdir(CHROMA_URL + key):
-            shutil.rmtree(CHROMA_URL + key)
+def cleanup():
+    #clean up old files
+    for dir in os.listdir(CHROMA_URL):
+        dir_path = os.path.join(CHROMA_URL, dir)
+        if os.path.isdir(dir_path) and time.time() - os.path.getmtime(dir_path) > FILE_EXPIRY_TIME:
+            shutil.rmtree(dir_path)
+
+if __name__ == "__main__":
+    cleanup()
