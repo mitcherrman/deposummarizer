@@ -20,6 +20,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
+#use local db file for testing (with debug mode off), turn off in production
+TEST_WITH_LOCAL_DB = False
+
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
 
@@ -79,7 +82,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
-} if DEBUG else {
+} if DEBUG or TEST_WITH_LOCAL_DB else {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'OPTIONS': {
