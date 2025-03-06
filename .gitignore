@@ -12,3 +12,4 @@ scripts
 gunicorn
 db.sqlite3
 .DS_Store
+.pgpass
