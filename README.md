@@ -33,12 +33,7 @@ The app uses:
 - Session database for storing uploaded and generated PDFs
 - PyMuPDF for PDF processing
 - Langchain for AI model interaction
-- 
-In addition, this repository contains a script called `hourly.py`, which should be run hourly when the web server is active.
 
-## Using DSPY
-pip install dspy
-pip install -U dspy
-pip install sentence transformers
+## License
 
-install dspy to python and to powershell virtual environment.
+This project is licensed under the MIT License - see the [LICENSE.txt](LICENSE.txt) file for details.
