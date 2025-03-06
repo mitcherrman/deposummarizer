@@ -140,7 +140,7 @@ SESSION_ENGINE = 'server.chroma_db_session'
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 
-#TODO: login page
+#login page
 LOGIN_URL = '/login'
 
 #HSTS settings

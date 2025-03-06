@@ -11,3 +11,4 @@ frontend
 tools
 gunicorn
 pdf2docx
+psycopg
