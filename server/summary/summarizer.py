@@ -118,7 +118,7 @@ def extract_text_with_numbers(pdf_buffer, exclude_top=40, exclude_bottom=70):
             logging.info(f"Skipped page {page_num + 1}, content size {len(filtered_text)}")
 
     doc.close()
-    return "".join(all_text)
+    return all_text
 
 # Filter out text blocks within excluded areas.
 def extract_filtered_text(blocks, page_height, exclude_top, exclude_bottom):
@@ -234,9 +234,7 @@ def create_summary(pdf_data, id):
         remove_marginal_text(pdf_buffer, cleaned_buffer)
         cleaned_buffer.seek(0)
 
-        raw_text = extract_text_with_numbers(cleaned_buffer)
-
-        text_pages = split_text_by_page(raw_text)
+        text_pages = extract_text_with_numbers(cleaned_buffer)
 
         # Initialize chatbot for processing
         update_status_msg(id, "Configuring chatbot...")
