@@ -15,6 +15,7 @@ import server.summary.deposition_chatbot as cb  # Reintroducing chatbot
 from django.conf import settings
 from importlib import import_module
 from server.util import session_lock
+import base64
 
 session_engine = import_module(settings.SESSION_ENGINE)
 
@@ -48,8 +49,8 @@ def is_page_valid(text, min_length=150, keywords=KEYWORDS):
     return False
 
 # Remove marginal text (headers, footers, side margins)
-def remove_marginal_text(pdf_path, output_path):
-    pdf_document = fitz.open(pdf_path)
+def remove_marginal_text(input_buffer, output_buffer):
+    pdf_document = fitz.open(stream=input_buffer, filetype="pdf")
     new_pdf = fitz.open()  # Create a new PDF
 
     for page_num in range(pdf_document.page_count):
@@ -87,18 +88,18 @@ def remove_marginal_text(pdf_path, output_path):
 
     pdf_document.close()
 
-    # Save the new PDF
-    new_pdf.save(output_path)
+    # Save the new PDF to the output buffer
+    new_pdf.save(output_buffer)
     new_pdf.close()
 
 # Extracts text from the PDF, ignoring top and bottom margins.
 # Returns the extracted text as a string.
-def extract_text_with_numbers(pdf_path, exclude_top=40, exclude_bottom=70):
+def extract_text_with_numbers(pdf_buffer, exclude_top=40, exclude_bottom=70):
     try:
-        doc = fitz.open(pdf_path)
+        doc = fitz.open(stream=pdf_buffer, filetype="pdf")
     except Exception as e:
-        logging.error(f"Error opening PDF file: {e}")
-        raise FileNotFoundError(f"Could not open PDF file: {pdf_path}")
+        logging.error(f"Error opening PDF buffer: {e}")
+        raise ValueError("Could not open PDF from buffer")
     
     all_text = []
     for page_num, page in enumerate(doc):
@@ -116,6 +117,7 @@ def extract_text_with_numbers(pdf_path, exclude_top=40, exclude_bottom=70):
         else:
             logging.info(f"Skipped page {page_num + 1}, content size {len(filtered_text)}")
 
+    doc.close()
     return "".join(all_text)
 
 # Filter out text blocks within excluded areas.
@@ -126,18 +128,14 @@ def extract_filtered_text(blocks, page_height, exclude_top, exclude_bottom):
     )
 
 # Writes summaries to a PDF file at the given output path.
-def write_summaries_to_pdf(summaries, output_path):
-    with io.BytesIO() as pdf_file:
-        doc = SimpleDocTemplate(
-            pdf_file,
-            pagesize=letter,
-            leftMargin=72, rightMargin=72, topMargin=72, bottomMargin=72  # Adjust margins for readability
-        )
-        story = build_pdf_story(summaries)
-        doc.build(story)
-        pdf_file.seek(0)
-        with open(output_path, 'wb') as f:
-            f.write(pdf_file.read())
+def write_summaries_to_pdf(summaries, output):
+    doc = SimpleDocTemplate(
+        output,
+        pagesize=letter,
+        leftMargin=72, rightMargin=72, topMargin=72, bottomMargin=72  # Adjust margins for readability
+    )
+    story = build_pdf_story(summaries)
+    doc.build(story)
 
 # Build the paragraphs and structure for the PDF document with improved styling
 def build_pdf_story(summaries):
@@ -219,21 +217,24 @@ def update_status_msg(id, msg):
 
 # Orchestrates the entire summary process: from removing marginal text, extracting text, splitting it into pages,
 # summarizing it, and writing the final summaries to a PDF.
-def create_summary(request, id):
-    file_path = request
-    if not file_path:
-        logging.error(f"[{id}]: No file path provided")
+def create_summary(pdf_data, id):
+    if not pdf_data:
+        logging.error(f"[{id}]: No PDF data provided")
         return 0
 
     try:
-        logging.info(f"Processing file: {file_path}")
+        logging.info(f"Processing PDF data for session {id}")
         update_status_msg(id, "Extracting text...")
 
-        # Clean up marginal text
-        #cleaned_pdf_path = f"cleaned_{os.path.basename(file_path)}"
-        remove_marginal_text(file_path, file_path)
+        # Create BytesIO objects for processing
+        pdf_buffer = io.BytesIO(pdf_data)
+        cleaned_buffer = io.BytesIO()
 
-        raw_text = extract_text_with_numbers(file_path)
+        # Clean up marginal text
+        remove_marginal_text(pdf_buffer, cleaned_buffer)
+        cleaned_buffer.seek(0)
+
+        raw_text = extract_text_with_numbers(cleaned_buffer)
 
         text_pages = split_text_by_page(raw_text)
 
@@ -244,12 +245,26 @@ def create_summary(request, id):
         update_status_msg(id, "Starting summary...")
         if not settings.TEST_WITHOUT_AI:
             summarized_pages = summarize_deposition(text_pages, id)
-            write_summaries_to_pdf(summarized_pages, f"{settings.SUMMARY_URL}{id}.pdf")
+            # Store summary in session as base64
+            with session_lock:
+                s = session_engine.SessionStore(id)
+                if s.exists(id):
+                    summary_buffer = io.BytesIO()
+                    write_summaries_to_pdf(summarized_pages, summary_buffer)
+                    s['summary_pdf'] = base64.b64encode(summary_buffer.getvalue()).decode('utf-8')
+                    s.save()
         else:
-            write_summaries_to_pdf(text_pages[0:5], f"{settings.SUMMARY_URL}{id}.pdf")
+            summary_buffer = io.BytesIO()
+            write_summaries_to_pdf(text_pages[0:5], summary_buffer)
+            with session_lock:
+                s = session_engine.SessionStore(id)
+                if s.exists(id):
+                    s['summary_pdf'] = base64.b64encode(summary_buffer.getvalue()).decode('utf-8')
+                    s.save()
 
-        logging.info(f"[{id}]: Summary saved to: {settings.SUMMARY_URL}{id}.pdf")
+        logging.info(f"[{id}]: Summary saved to session")
         update_status_msg(id, "Finishing up...")
         return l
-    except:
+    except Exception as e:
+        logging.error(f"Error in create_summary: {str(e)}")
         return -2
