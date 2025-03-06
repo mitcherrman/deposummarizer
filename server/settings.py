@@ -83,6 +83,7 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'OPTIONS': {
+            "service": "sessions",
             "passfile": config("DB_PASSFILE")
         }
     }
