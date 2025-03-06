@@ -236,6 +236,8 @@ def create_summary(pdf_data, id):
 
         text_pages = extract_text_with_numbers(cleaned_buffer)
 
+        raw_text = "".join(text_pages)
+
         # Initialize chatbot for processing
         update_status_msg(id, "Configuring chatbot...")
         l = cb.initBot(raw_text, id)
