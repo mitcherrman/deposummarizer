@@ -28,8 +28,7 @@ llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MOD
 # Define a prompt template for better input to the LLM
 prompt = ChatPromptTemplate.from_messages([
     ("system", "You will be given a legal deposition. Provide a brief summary of each page, considering the context of the entire document."),
-    ("user", "{input}"),
-    ("system", "Organize the summary with headers indicating 'Page X:' for each page, where X is the page number.")
+    ("user", "{input}")
 ])
 
 # Initialize output parser to convert chat message to string
