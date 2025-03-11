@@ -13,6 +13,8 @@ https://docs.djangoproject.com/en/5.0/ref/settings/
 from pathlib import Path
 from decouple import config
 import os
+from util import get_secret
+import json
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -85,9 +87,11 @@ DATABASES = {
 } if DEBUG or TEST_WITH_LOCAL_DB else {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'OPTIONS': {
-            "service": "sessions"
-        }
+        'NAME': config("DB_NAME"),
+        'USER': json.loads(get_secret(config("DB_ARN")))['username'],
+        'PASSWORD': json.loads(get_secret(config("DB_ARN")))['password'],
+        'HOST': config("DB_HOST"),
+        'PORT': config("DB_PORT")
     }
 }
 

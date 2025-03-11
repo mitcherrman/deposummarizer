@@ -12,3 +12,4 @@ tools
 gunicorn
 pdf2docx
 psycopg
+boto3
