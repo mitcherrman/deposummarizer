@@ -19,7 +19,7 @@ def get_secret(name, region = "us-east-2"):
     region_name = region
 
     # Create a Secrets Manager client
-    session = boto3.session.Session()
+    session = boto3.session.Session(profile_name="db_access")
     client = session.client(
         service_name='secretsmanager',
         region_name=region_name
