@@ -88,8 +88,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'NAME': config("DB_NAME"),
-        'USER': json.loads(util.get_secret(config("DB_ARN")))['username'],
-        'PASSWORD': json.loads(util.get_secret(config("DB_ARN")))['password'],
+        'USER': json.loads(util.get_secret(config("DB_SECRET_ARN")))['username'],
+        'PASSWORD': json.loads(util.get_secret(config("DB_SECRET_ARN")))['password'],
         'HOST': config("DB_HOST"),
         'PORT': config("DB_PORT")
     }
