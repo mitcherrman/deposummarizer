@@ -11,7 +11,9 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from decouple import config
 from threading import Lock
 from django.conf import settings
-from chromadb.api.client import SharedSystemClient
+from django.db import connection
+import chromadb
+from chromadb.config import Settings
 
 LOAD_DB_FROM_FOLDER = True
 DB_PIECE_SIZE = 1
@@ -21,43 +23,74 @@ model = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_M
 embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPENAI_KEY'))
 
 #thread locks
-db_lock = Lock() #used to access chroma databsase
+db_lock = Lock() #used to access chroma database
+
+def get_chroma_client():
+    db_settings = settings.DATABASES['default']
+    if settings.DEBUG or settings.TEST_WITH_LOCAL_DB:
+        return chromadb.PersistentClient(path=settings.CHROMA_URL)
+    else:
+        return chromadb.PostgresClient(
+            host=db_settings['HOST'],
+            port=db_settings['PORT'],
+            database=db_settings['NAME'],
+            user=db_settings['USER'],
+            password=db_settings['PASSWORD'],
+            settings=Settings(anonymized_telemetry=False)
+        )
 
 def initBot(fullText, id):
     print(f"[{id}]: Document length = {len(fullText)} characters")
-    with open("pdf_text.txt","w+t") as file:
-        file.write(fullText)
     print(f"[{id}]: Setting up model context...")
-    persist_path = settings.CHROMA_URL + id
+    
     #split text into chunks
-    split = RecursiveCharacterTextSplitter(chunk_size = DB_PIECE_SIZE*1000, chunk_overlap = DB_PIECE_SIZE*200, add_start_index = True)
+    split = RecursiveCharacterTextSplitter(chunk_size=DB_PIECE_SIZE*1000, chunk_overlap=DB_PIECE_SIZE*200, add_start_index=True)
     pieces = split.split_text(fullText)
-    #loads database from folder if possible, not used in production but helpful when testing to save on api calls
+    
+    #set up chroma with PostgreSQL backend
     with db_lock:
-        SharedSystemClient.clear_system_cache()
-        if LOAD_DB_FROM_FOLDER and os.path.isdir(persist_path):
-            print(f"[{id}]: Saved vector database found, loading from file...")
-            vectordb = Chroma(persist_directory=persist_path, embedding_function=embedding)
-        else:
-            print(f"[{id}]: Saved vector database not found/not allowed, building and saving vector database...")
-            vectordb = Chroma.from_texts(texts=pieces, embedding=embedding, persist_directory=persist_path)
+        client = get_chroma_client()
+        collection_name = f"collection_{id}"
+        
+        # Delete collection if it exists
+        try:
+            client.delete_collection(collection_name)
+        except:
+            pass
+            
+        # Create new collection
+        collection = client.create_collection(name=collection_name)
+        
+        # Create Langchain Chroma instance
+        vectordb = Chroma(
+            client=client,
+            collection_name=collection_name,
+            embedding_function=embedding
+        )
+        
+        # Add documents
+        vectordb.add_texts(pieces)
+        
     l = len(pieces)
     print(f"[{id}]: Context creation finished.")
     return l
 
-def combine_text(msgs):
-    return "\n\n".join(msg.page_content for msg in msgs)
-
-#begin Q/A loop
 def askQuestion(question, id, prompt_append, l):
     #set up vectordb retriever
-    path = settings.CHROMA_URL + id
-    vectordb = Chroma(persist_directory=path, embedding_function=embedding)
-    retriever = vectordb.as_retriever(search_type="similarity",search_kwargs={"k":max(6,int(l/32))}) #play with this number
+    client = get_chroma_client()
+    collection_name = f"collection_{id}"
+    vectordb = Chroma(
+        client=client,
+        collection_name=collection_name,
+        embedding_function=embedding
+    )
+    retriever = vectordb.as_retriever(search_type="similarity",search_kwargs={"k":max(6,int(l/32))})
+    
     #set up context
     context = combine_text(retriever.invoke(question))
     print(f"[{id}]: Context length = {len(context)} characters")
-    #set up prompt (derived from https://smith.langchain.com/hub/rlm/rag-prompt)
+    
+    #set up prompt
     prompt = [
         {"role":"system","content":f"You are an assistant for question-answering tasks. Use the following exerpts from a court deposition to answer the user's question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise. Include the exact quote(s) you got the answer from.\nExerpt: {context}"},
     ]
@@ -75,3 +108,6 @@ def askQuestion(question, id, prompt_append, l):
         {"role":"assistant","content":parsed_result}
     ])
     return [parsed_result, prompt_append]
+
+def combine_text(msgs):
+    return "\n\n".join(msg.page_content for msg in msgs)
