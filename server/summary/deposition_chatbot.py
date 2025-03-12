@@ -26,18 +26,7 @@ embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPE
 db_lock = Lock() #used to access chroma database
 
 def get_chroma_client():
-    db_settings = settings.DATABASES['default']
-    if settings.DEBUG or settings.TEST_WITH_LOCAL_DB:
-        return chromadb.PersistentClient(path=settings.CHROMA_URL)
-    else:
-        return chromadb.PostgresClient(
-            host=db_settings['HOST'],
-            port=db_settings['PORT'],
-            database=db_settings['NAME'],
-            user=db_settings['USER'],
-            password=db_settings['PASSWORD'],
-            settings=Settings(anonymized_telemetry=False)
-        )
+    return chromadb.PersistentClient(path=settings.CHROMA_URL)
 
 def initBot(fullText, id):
     print(f"[{id}]: Document length = {len(fullText)} characters")
