@@ -13,7 +13,7 @@ from threading import Lock
 from django.conf import settings
 import chromadb
 from langchain_postgres import PGVector
-from . import util
+from server import util
 import json
 
 LOAD_DB_FROM_FOLDER = True
