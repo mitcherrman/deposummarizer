@@ -208,7 +208,6 @@ def split_text_by_page(text):
     pages = [""]
     page_num = 0
     for line in lines:
-        print(f"p: {page_num}")
         i = 0
         l = len(line)
         while l > i and (ord(line[i]) <= 32 or ord(line[i]) >= 127):

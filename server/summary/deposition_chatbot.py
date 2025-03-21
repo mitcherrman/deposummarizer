@@ -13,6 +13,8 @@ from threading import Lock
 from django.conf import settings
 import chromadb
 from langchain_postgres import PGVector
+from . import util
+import json
 
 LOAD_DB_FROM_FOLDER = True
 DB_PIECE_SIZE = 1
@@ -23,6 +25,8 @@ embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPE
 
 #thread locks
 db_lock = Lock() #used to access chroma database
+
+embed_connection = f"postgresql+psycopg://{json.loads(util.get_secret(config("DB_SECRET_ARN")))['username']}:{json.loads(util.get_secret(config("DB_SECRET_ARN")))['password']}@{config('DB_HOST')}/{config('EMBED_DB_NAME')}"
 
 def get_chroma_client():
     return chromadb.PersistentClient(path=settings.CHROMA_URL)
@@ -61,7 +65,7 @@ def initBot(fullText, id):
             vectordb.add_texts(pieces)
         else:
             vector_store = PGVector(
-                connection=f"{config('DB_HOST')}/{config('EMBED_DB_NAME')}",
+                connection=embed_connection,
                 collection_name=collection_name,
                 embeddings=embedding
             )
@@ -92,7 +96,7 @@ def askQuestion(question, id, prompt_append, l):
         retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k":max(6,int(l/32))})
     else:
         vector_store = vector_store = PGVector(
-            connection=f"{config('DB_HOST')}/{config('EMBED_DB_NAME')}",
+            connection=embed_connection,
             collection_name=collection_name,
             embeddings=embedding
         )
