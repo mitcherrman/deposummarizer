@@ -61,7 +61,7 @@ def initBot(fullText, id):
             vectordb.add_texts(pieces)
         else:
             vector_store = PGVector(
-                connection=f"{config("DB_HOST")}/{config("EMBED_DB_NAME")}",
+                connection=f"{config('DB_HOST')}/{config('EMBED_DB_NAME')}",
                 collection_name=collection_name,
                 embeddings=embedding
             )
@@ -92,7 +92,7 @@ def askQuestion(question, id, prompt_append, l):
         retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k":max(6,int(l/32))})
     else:
         vector_store = vector_store = PGVector(
-            connection=f"{config("DB_HOST")}/{config("EMBED_DB_NAME")}",
+            connection=f"{config('DB_HOST')}/{config('EMBED_DB_NAME')}",
             collection_name=collection_name,
             embeddings=embedding
         )
