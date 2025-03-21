@@ -26,7 +26,7 @@ embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPE
 #thread locks
 db_lock = Lock() #used to access chroma database
 
-embed_connection = f"postgresql+psycopg://{json.loads(util.get_secret(config("DB_SECRET_ARN")))['username']}:{json.loads(util.get_secret(config("DB_SECRET_ARN")))['password']}@{config('DB_HOST')}/{config('EMBED_DB_NAME')}"
+embed_connection = f"postgresql+psycopg://{json.loads(util.get_secret(config('DB_SECRET_ARN')))['username']}:{json.loads(util.get_secret(config('DB_SECRET_ARN')))['password']}@{config('DB_HOST')}/{config('EMBED_DB_NAME')}"
 
 def get_chroma_client():
     return chromadb.PersistentClient(path=settings.CHROMA_URL)
