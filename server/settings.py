@@ -87,7 +87,7 @@ DATABASES = {
 } if DEBUG or TEST_WITH_LOCAL_DB else {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config("DB_NAME"),
+        'NAME': config("SESSION_DB_NAME"),
         'USER': json.loads(util.get_secret(config("DB_SECRET_ARN")))['username'],
         'PASSWORD': json.loads(util.get_secret(config("DB_SECRET_ARN")))['password'],
         'HOST': config("DB_HOST"),
@@ -145,6 +145,8 @@ CHROMA_URL = config("CHROMA_URL") #path to store chroma vector databases
 
 SESSION_ENGINE = 'server.chroma_db_session'
 
+SESSION_COOKIE_AGE = 60 * 60 * 12
+
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 #login page
@@ -152,7 +154,7 @@ LOGIN_URL = '/login'
 
 #HSTS settings
 
-SECURE_HSTS_SECONDS = 30
+SECURE_HSTS_SECONDS = 60 * 60 * 24 * 14
 SECURE_HSTS_PRELOAD = True
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")

@@ -209,7 +209,7 @@ def verify(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
 	if request.session and request.session['db_len'] == -1:
-		return HttpResponse(request.session['status_msg'] if request.session['status_msg'] else "Working...") #body used by frontend for status message
+		return HttpResponse(request.session.get('status_msg', "Working...")) #body used by frontend for status message
 	return HttpResponse("Summary not in progress.", status=418) #no error code for "task failed successfully"
 
 #creates an account

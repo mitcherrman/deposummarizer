@@ -93,7 +93,7 @@ def remove_marginal_text(input_buffer, output_buffer):
 
 # Extracts text from the PDF, ignoring top and bottom margins.
 # Returns the extracted text as a string.
-def extract_text_with_numbers(pdf_buffer, exclude_top=40, exclude_bottom=70):
+def extract_text_with_numbers(pdf_buffer, exclude_top=40, exclude_bottom=70, number_margin=True):
     try:
         doc = fitz.open(stream=pdf_buffer, filetype="pdf")
     except Exception as e:
@@ -108,16 +108,16 @@ def extract_text_with_numbers(pdf_buffer, exclude_top=40, exclude_bottom=70):
             raise RuntimeError()
         ocr_page = page.get_textpage_ocr()
         text_blocks = page.get_text("blocks", textpage=ocr_page)
-        filtered_text = extract_filtered_text(text_blocks, page_height, exclude_top, exclude_bottom)
+        filtered_text = "\n".join(block[4] for block in text_blocks) #extract_filtered_text(text_blocks, page_height, exclude_top, exclude_bottom)
 
         if is_page_valid(filtered_text):
-            all_text.append(f"Page {page_num + 1}\n{filtered_text}")
+            all_text.append(f"\n{filtered_text}")
             logging.info(f"Processed page {page_num + 1}, content size {len(filtered_text)}")
         else:
             logging.info(f"Skipped page {page_num + 1}, content size {len(filtered_text)}")
 
     doc.close()
-    return all_text
+    return "".join(all_text)
 
 # Filter out text blocks within excluded areas.
 def extract_filtered_text(blocks, page_height, exclude_top, exclude_bottom):
@@ -194,6 +194,7 @@ def summarize_deposition(text_pages, id):
     summaries = []  # Use a list to store summaries in order
     for page_num, page in enumerate(text_pages, start=1):
         update_status_msg(id, f"Summarizing page {page_num} of {len(text_pages)}...")
+        print(page)
         if len(page) > 150:
             summary = summarize_deposition_text(page)
             summaries.append(summary)  # Store summaries in the list in order
@@ -203,8 +204,20 @@ def summarize_deposition(text_pages, id):
 
 # Split extracted text into pages, assuming each page starts with "Page" followed by a number.
 def split_text_by_page(text):
-    pages = text.split('\nPage ')
-    pages = [page if i == 0 else 'Page ' + page for i, page in enumerate(pages)]
+    lines = text.split('\n')
+    pages = [""]
+    page_num = 0
+    for line in lines:
+        print(f"p: {page_num}")
+        i = 0
+        l = len(line)
+        while l > i and (ord(line[i]) <= 32 or ord(line[i]) >= 127):
+            i += 1
+        if l > i+1 and line[i] == '1' and not line[i+1].isdigit():
+            pages.append(f"Page {page_num}:\n{line}")
+            page_num += 1
+        elif l > i:
+            pages[-1] = f"{pages[-1]} {line}"
     return pages
 
 def update_status_msg(id, msg):
@@ -227,15 +240,18 @@ def create_summary(pdf_data, id):
 
         # Create BytesIO objects for processing
         pdf_buffer = io.BytesIO(pdf_data)
-        cleaned_buffer = io.BytesIO()
+        cleaned_buffer = pdf_buffer #io.BytesIO()
 
         # Clean up marginal text
-        remove_marginal_text(pdf_buffer, cleaned_buffer)
+        #remove_marginal_text(pdf_buffer, cleaned_buffer)
         cleaned_buffer.seek(0)
 
-        text_pages = extract_text_with_numbers(cleaned_buffer)
+        raw_text = extract_text_with_numbers(cleaned_buffer)
 
-        raw_text = "".join(text_pages)
+        text_pages = split_text_by_page(raw_text)
+
+        #first page is residual fiiller, second a cover, no use
+        text_pages = text_pages[2:]
 
         # Initialize chatbot for processing
         update_status_msg(id, "Configuring chatbot...")

@@ -5,6 +5,7 @@ langchain-chroma
 langchain-core
 langchain-openai
 langchain-text-splitters
+langchain_postgres
 python-decouple
 django
 frontend
