@@ -104,7 +104,7 @@ def extract_text_with_numbers(pdf_buffer, exclude_top=40, exclude_bottom=70, num
     for page_num, page in enumerate(doc):
         page_height = page.rect.height
         if not fitz.get_tessdata():
-            print("Tesseract is not installed")
+            logging.error("Tesseract is not installed")
             raise RuntimeError()
         ocr_page = page.get_textpage_ocr()
         text_blocks = page.get_text("blocks", textpage=ocr_page)
@@ -194,7 +194,6 @@ def summarize_deposition(text_pages, id):
     summaries = []  # Use a list to store summaries in order
     for page_num, page in enumerate(text_pages, start=1):
         update_status_msg(id, f"Summarizing page {page_num} of {len(text_pages)}...")
-        print(page)
         if len(page) > 150:
             summary = summarize_deposition_text(page)
             summaries.append(summary)  # Store summaries in the list in order
