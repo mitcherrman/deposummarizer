@@ -67,15 +67,11 @@ def initBot(fullText, id):
             vector_store = PGVector(
                 connection=embed_connection,
                 collection_name=collection_name,
-                embeddings=embedding
+                embeddings=embedding,
+                pre_delete_collection=True
             )
 
-            try:
-                vector_store.delete_collection(collection_name)
-            except:
-                pass
-
-            vector_store.create_collection(collection_name)
+            vector_store.create_collection()
             vector_store.add_texts(pieces)
         
     l = len(pieces)

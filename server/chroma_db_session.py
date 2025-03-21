@@ -3,12 +3,19 @@ from django.conf import settings
 from decouple import config
 from django.db import connection
 import chromadb
+from langchain_postgres import PGVector
+from server import util
+import json
+from langchain_openai import OpenAIEmbeddings
+
+embed_connection = f"postgresql+psycopg://{json.loads(util.get_secret(config('DB_SECRET_ARN')))['username']}:{json.loads(util.get_secret(config('DB_SECRET_ARN')))['password']}@{config('DB_HOST')}/{config('EMBED_DB_NAME')}"
+embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPENAI_KEY'))
 
 class SessionStore(Dbss):
     """
     A session engine that extends the default database engine functionality by managing Chroma collections.
     """
-
+    
     def __init__(self, session_key=None):
         super().__init__(session_key)
     
@@ -52,43 +59,72 @@ class SessionStore(Dbss):
             self._delete_chroma_collection(self.session_key)
 
     def _delete_chroma_collection(self, session_key):
+        collection = f"collection_{session_key}"
+        #debug
         try:
-            if settings.DEBUG or settings.TEST_WITH_LOCAL_DB:
-                client = chromadb.PersistentClient(path=".chroma")
-            else:
-                db_settings = settings.DATABASES['default']
-                client = chromadb.PostgresClient(
-                    host=db_settings['HOST'],
-                    port=db_settings['PORT'],
-                    database=db_settings['NAME'],
-                    user=db_settings['USER'],
-                    password=db_settings['PASSWORD']
-                )
-            client.delete_collection(f"collection_{session_key}")
+            client = chromadb.PersistentClient(path=settings.CHROMA_URL)
+            client.delete_collection(collection)
+        except:
+            pass
+        #production
+        try:
+            vector_store = PGVector(
+                connection=embed_connection,
+                collection_name=collection,
+                embeddings=embedding,
+                pre_delete_collection=True
+            )
         except:
             pass
 
     def _rename_chroma_collection(self, old_key, new_key):
+        old_collection = f"collection_{old_key}"
+        new_collection = f"collection_{new_key}"
+        #debug
         try:
-            if settings.DEBUG or settings.TEST_WITH_LOCAL_DB:
-                client = chromadb.PersistentClient(path=".chroma")
-            else:
-                db_settings = settings.DATABASES['default']
-                client = chromadb.PostgresClient(
-                    host=db_settings['HOST'],
-                    port=db_settings['PORT'],
-                    database=db_settings['NAME'],
-                    user=db_settings['USER'],
-                    password=db_settings['PASSWORD']
-                )
+            client = chromadb.PersistentClient(path=".chroma")
             # Get the old collection
-            old_collection = client.get_collection(f"collection_{old_key}")
+            old_collection = client.get_collection(old_collection)
             # Create new collection
-            new_collection = client.create_collection(f"collection_{new_key}")
+            new_collection = client.create_collection(new_collection)
             # Copy data
             if old_collection._embedding_function:
                 new_collection._embedding_function = old_collection._embedding_function
             # Delete old collection
-            client.delete_collection(f"collection_{old_key}")
+            client.delete_collection(old_collection)
+        except:
+            pass
+        #production
+        try:
+            old_vector_store = PGVector(
+                connection=embed_connection,
+                collection_name=old_collection,
+                embeddings=embedding
+            )
+            new_vector_store = PGVector(
+                connection=embed_connection,
+                collection_name=new_collection,
+                embeddings=embedding
+            )
+            # Get all embeddings from old collection
+            with old_vector_store._make_sync_session() as session:
+                old_embeddings = session.query(old_vector_store.EmbeddingStore).all()
+                
+                # Extract data from old embeddings
+                texts = [e.document for e in old_embeddings]
+                embeddings = [e.embedding for e in old_embeddings]
+                metadatas = [e.cmetadata for e in old_embeddings]
+                ids = [e.id for e in old_embeddings]
+                
+                # Add to new collection
+                new_vector_store.add_embeddings(
+                    texts=texts,
+                    embeddings=embeddings, 
+                    metadatas=metadatas,
+                    ids=ids
+                )
+                
+            # Delete old collection
+            old_vector_store.delete_collection()
         except:
             pass
