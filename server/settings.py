@@ -20,10 +20,10 @@ import json
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
 #use local db file for testing (with debug mode off), turn off in production
-TEST_WITH_LOCAL_DB = False
+TEST_WITH_LOCAL_DB = True
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.0/howto/deployment/checklist/
@@ -87,7 +87,7 @@ DATABASES = {
 } if DEBUG or TEST_WITH_LOCAL_DB else {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config("SESSION_DB_NAME"),
+        'NAME': config("DB_NAME"),
         'USER': json.loads(util.get_secret(config("DB_SECRET_ARN")))['username'],
         'PASSWORD': json.loads(util.get_secret(config("DB_SECRET_ARN")))['password'],
         'HOST': config("DB_HOST"),

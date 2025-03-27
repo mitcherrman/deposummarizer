@@ -6,6 +6,11 @@
   width: 75%;
 }
 
+.clear-button {
+  float: right;
+  margin-right: 10px;
+}
+
 .chat-container {
   background-color: #FFFFFF;
   border-radius: 10px;

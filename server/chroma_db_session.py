@@ -3,12 +3,15 @@ from django.conf import settings
 from decouple import config
 from django.db import connection
 import chromadb
-from langchain_postgres import PGVector
 from server import util
 import json
 from langchain_openai import OpenAIEmbeddings
 
-embed_connection = f"postgresql+psycopg://{json.loads(util.get_secret(config('DB_SECRET_ARN')))['username']}:{json.loads(util.get_secret(config('DB_SECRET_ARN')))['password']}@{config('DB_HOST')}/{config('EMBED_DB_NAME')}"
+if (not (settings.DEBUG or settings.TEST_WITH_LOCAL_DB)):
+    from langchain_postgres import PGVector
+
+if (not (settings.DEBUG or settings.TEST_WITH_LOCAL_DB)):
+    embed_connection = f"postgresql+psycopg://{json.loads(util.get_secret(config('DB_SECRET_ARN')))['username']}:{json.loads(util.get_secret(config('DB_SECRET_ARN')))['password']}@{config('DB_HOST')}/{config('DB_NAME')}"
 embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPENAI_KEY'))
 
 class SessionStore(Dbss):

@@ -142,7 +142,7 @@ def clear(request):
 		if os.path.isdir(dirname):
 			shutil.rmtree(dirname)
 	request.session.clear()
-	return HttpResponse("session cleared")
+	return redirect(home)
 
 #helper function, gets output doc in different formats
 def get_out(request, type):

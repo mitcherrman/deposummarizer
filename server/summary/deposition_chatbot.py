@@ -12,9 +12,11 @@ from decouple import config
 from threading import Lock
 from django.conf import settings
 import chromadb
-from langchain_postgres import PGVector
 from server import util
 import json
+
+if (not (settings.DEBUG or settings.TEST_WITH_LOCAL_DB)):
+    from langchain_postgres import PGVector
 
 LOAD_DB_FROM_FOLDER = True
 DB_PIECE_SIZE = 1
@@ -26,7 +28,8 @@ embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPE
 #thread locks
 db_lock = Lock() #used to access chroma database
 
-embed_connection = f"postgresql+psycopg://{json.loads(util.get_secret(config('DB_SECRET_ARN')))['username']}:{json.loads(util.get_secret(config('DB_SECRET_ARN')))['password']}@{config('DB_HOST')}/{config('EMBED_DB_NAME')}"
+if (not (settings.DEBUG or settings.TEST_WITH_LOCAL_DB)):
+    embed_connection = f"postgresql+psycopg://{json.loads(util.get_secret(config('DB_SECRET_ARN')))['username']}:{json.loads(util.get_secret(config('DB_SECRET_ARN')))['password']}@{config('DB_HOST')}/{config('DB_NAME')}"
 
 def get_chroma_client():
     return chromadb.PersistentClient(path=settings.CHROMA_URL)

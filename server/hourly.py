@@ -8,7 +8,7 @@ CHROMA_URL = config("CHROMA_URL") #path to store chroma vector databases
 SUMMARY_URL = config("SUMMARY_URL") #path to store chroma vector databases
 DEPO_URL = config("DEPO_URL") #path to store submitted depositions
 
-FILE_EXPIRY_TIME = 60 * 60 * 24 #24 hours
+FILE_EXPIRY_TIME = 60 * 60 * 12 #12 hours
 
 def cleanup():
     #clean up old files
@@ -16,6 +16,8 @@ def cleanup():
         dir_path = os.path.join(CHROMA_URL, dir)
         if os.path.isdir(dir_path) and time.time() - os.path.getmtime(dir_path) > FILE_EXPIRY_TIME:
             shutil.rmtree(dir_path)
+    #clear sessions
+    os.system("cd {config('CODE_PATH')}; python3 manage.py clearsessions")
 
 if __name__ == "__main__":
     cleanup()
