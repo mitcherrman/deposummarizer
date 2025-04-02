@@ -5,6 +5,7 @@ from django.db import connection
 import chromadb
 from server import util
 import json
+import psycopg
 from langchain_openai import OpenAIEmbeddings
 
 if (not (settings.DEBUG or settings.TEST_WITH_LOCAL_DB)):
@@ -129,5 +130,26 @@ class SessionStore(Dbss):
                 
             # Delete old collection
             old_vector_store.delete_collection()
+        except:
+            pass
+
+    @classmethod
+    def clear_expired(cls):
+        super().clear_expired()
+        try:
+            connection = psycopg.connect(conninfo=embed_connection)
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    DELETE FROM langchain_pg_embedding
+                    USING django_session, langchain_pg_collection
+                    WHERE langchain_pg_embedding.collection_id IN (
+                        DELETE FROM langchain_pg_collection
+                        USING django_session
+                        WHERE trim(LEADING 'collection_' FROM name) NOT IN (
+                           SELECT session_key FROM django_session
+                        )
+                        RETURNING uuid
+                    )
+                """)
         except:
             pass
