@@ -5,8 +5,6 @@ from decouple import config
 #Clear old summary files
 
 CHROMA_URL = config("CHROMA_URL") #path to store chroma vector databases
-SUMMARY_URL = config("SUMMARY_URL") #path to store chroma vector databases
-DEPO_URL = config("DEPO_URL") #path to store submitted depositions
 
 FILE_EXPIRY_TIME = 60 * 60 * 12 #12 hours
 
