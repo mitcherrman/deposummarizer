@@ -15,7 +15,7 @@ def cleanup():
         if os.path.isdir(dir_path) and time.time() - os.path.getmtime(dir_path) > FILE_EXPIRY_TIME:
             shutil.rmtree(dir_path)
     #clear sessions
-    os.system("cd {config('CODE_PATH')}; python3 manage.py clearsessions")
+    os.system(f"cd {config('CODE_PATH')}; python3 manage.py clearsessions")
 
 if __name__ == "__main__":
     cleanup()
