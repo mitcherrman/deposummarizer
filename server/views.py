@@ -26,6 +26,8 @@ session_engine = import_module(settings.SESSION_ENGINE)
 def summarize(request):
 	if request.method != 'POST':
 		return HttpResponseNotAllowed(['POST'])
+	if not (request.FILES and request.FILES['file']):
+		HttpResponseBadRequest("Malformed request, should contain a file called \"file\"")
 	if not request.session.session_key:
 		request.session.save()
 	id = request.session.session_key
@@ -34,8 +36,6 @@ def summarize(request):
 		if request.session['db_len'] == -1:
 			return HttpResponse("Summary in progress, please wait.", status=409)
 	except: pass
-	if not (request.FILES and request.FILES['file']):
-		HttpResponseBadRequest("Malformed request, should contain a file called \"file\"")
 	request.session['db_len'] = -1
 	request.session['prompt_append'] = []
 	
@@ -149,7 +149,7 @@ def get_out(request, type):
 	if request.method != 'GET' and request.method != 'HEAD':
 		return HttpResponseNotAllowed(['GET', 'HEAD'])
 	if not request.session.session_key:
-		request.session.save()
+		return HttpResponse("No input file found, summarize a file first", status=409)
 	id = request.session.session_key
 	if request.method == 'HEAD':
 		if 'summary_pdf' in request.session:
