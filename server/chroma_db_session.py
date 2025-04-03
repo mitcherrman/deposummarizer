@@ -140,15 +140,17 @@ class SessionStore(Dbss):
             connection = psycopg.connect(conninfo=embed_connection)
             with connection.cursor() as cursor:
                 cursor.execute("""
+                    DELETE FROM langchain_pg_collection
+                    USING django_session
+                    WHERE trim(LEADING 'collection_' FROM name) NOT IN (
+                        SELECT session_key FROM django_session
+                    )
+                """)
+                cursor.execute("""
                     DELETE FROM langchain_pg_embedding
-                    USING django_session, langchain_pg_collection
-                    WHERE langchain_pg_embedding.collection_id IN (
-                        DELETE FROM langchain_pg_collection
-                        USING django_session
-                        WHERE trim(LEADING 'collection_' FROM name) NOT IN (
-                           SELECT session_key FROM django_session
-                        )
-                        RETURNING uuid
+                    USING langchain_pg_collection
+                    WHERE langchain_pg_embedding.collection_id NOT IN (
+                        SELECT uuid FROM langchain_pg_collection
                     )
                 """)
         except:
