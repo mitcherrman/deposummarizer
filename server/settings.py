@@ -80,9 +80,14 @@ WSGI_APPLICATION = 'server.wsgi.application'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
+    #values for local testing, change depending on local environment
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': "postgres",
+        'USER': "postgres",
+        'PASSWORD': "postgres",
+        'HOST': "localhost",
+        'PORT': "5432"
     }
 } if DEBUG or TEST_WITH_LOCAL_DB else {
     'default': {
@@ -141,9 +146,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 TEST_WITHOUT_AI = False #if set to true, does not recreate database and generates dummy summary to save on API calls, set to false in production
 
-CHROMA_URL = config("CHROMA_URL") #path to store chroma vector databases
-
-SESSION_ENGINE = 'server.chroma_db_session'
+SESSION_ENGINE = 'server.vector_db_session'
 
 SESSION_COOKIE_AGE = 60 * 60 * 12
 

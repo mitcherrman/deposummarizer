@@ -1,7 +1,6 @@
 pymupdf
 reportlab
 langchain
-langchain-chroma
 langchain-core
 langchain-openai
 langchain-text-splitters
@@ -13,4 +12,5 @@ tools
 gunicorn
 pdf2docx
 psycopg
+psycopg-binary
 boto3

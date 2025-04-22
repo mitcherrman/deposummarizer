@@ -10,13 +10,8 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from decouple import config
 from threading import Lock
-from django.conf import settings
-import chromadb
 from server import util
-import json
-
-if (not (settings.DEBUG or settings.TEST_WITH_LOCAL_DB)):
-    from langchain_postgres import PGVector
+from langchain_postgres import PGVector
 
 LOAD_DB_FROM_FOLDER = True
 DB_PIECE_SIZE = 1
@@ -27,12 +22,6 @@ embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPE
 
 #thread locks
 db_lock = Lock() #used to access chroma database
-
-if (not (settings.DEBUG or settings.TEST_WITH_LOCAL_DB)):
-    embed_connection = f"postgresql+psycopg://{json.loads(util.get_secret(config('DB_SECRET_ARN')))['username']}:{json.loads(util.get_secret(config('DB_SECRET_ARN')))['password']}@{config('DB_HOST')}/{config('DB_NAME')}"
-
-def get_chroma_client():
-    return chromadb.PersistentClient(path=settings.CHROMA_URL)
 
 def initBot(fullText, id):
     print(f"[{id}]: Document length = {len(fullText)} characters")
@@ -45,37 +34,15 @@ def initBot(fullText, id):
     #set up chroma with PostgreSQL backend
     collection_name = f"collection_{id}"
     with db_lock:
-        if (settings.DEBUG or settings.TEST_WITH_LOCAL_DB):
-            client = get_chroma_client()
-            
-            # Delete collection if it exists
-            try:
-                client.delete_collection(collection_name)
-            except:
-                pass
-                
-            # Create new collection
-            collection = client.create_collection(name=collection_name)
-            
-            # Create Langchain Chroma instance
-            vectordb = Chroma(
-                client=client,
-                collection_name=collection_name,
-                embedding_function=embedding
-            )
-            
-            # Add documents
-            vectordb.add_texts(pieces)
-        else:
-            vector_store = PGVector(
-                connection=embed_connection,
-                collection_name=collection_name,
-                embeddings=embedding,
-                pre_delete_collection=True
-            )
-
-            vector_store.create_collection()
-            vector_store.add_texts(pieces)
+        vector_store = PGVector(
+            connection=util.get_db_sqlalchemy_url(),
+            collection_name=collection_name,
+            embeddings=embedding,
+            engine_args=util.get_pgvector_engine_args(),
+            pre_delete_collection=True
+        )
+        vector_store.create_collection()
+        vector_store.add_texts(pieces)
         
     l = len(pieces)
     print(f"[{id}]: Context creation finished.")
@@ -83,23 +50,15 @@ def initBot(fullText, id):
 
 def askQuestion(question, id, prompt_append, l):
     #set up vectordb retriever
-    client = get_chroma_client()
     collection_name = f"collection_{id}"
     retriever = None
-    if (settings.DEBUG or settings.TEST_WITH_LOCAL_DB):
-        vectordb = Chroma(
-            client=client,
-            collection_name=collection_name,
-            embedding_function=embedding
-        )
-        retriever = vectordb.as_retriever(search_type="similarity", search_kwargs={"k":max(6,int(l/32))})
-    else:
-        vector_store = vector_store = PGVector(
-            connection=embed_connection,
-            collection_name=collection_name,
-            embeddings=embedding
-        )
-        retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k":max(6,int(l/32))})
+    vector_store = vector_store = PGVector(
+        connection=util.get_db_sqlalchemy_url(),
+        collection_name=collection_name,
+        embeddings=embedding,
+        engine_args=util.get_pgvector_engine_args()
+    )
+    retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k":max(6,int(l/32))})
 
     #set up context
     context = combine_text(retriever.invoke(question))

@@ -5,18 +5,25 @@ A web app that summarizes legal depositions using AI.
 ## Environment Variables
 
 The following environment variables must be set:
-- `OPENAI_KEY`: your OpenAI API key
-- `GPT_MODEL`: the name of the GPT model to use (e.g. "gpt-4")
-- `CHROMA_URL`: the name of the directory where Chroma vector databases will be stored
-- `TMP_URL`: the name of the directory where temporary files will be stored
-- `SECRET_KEY`: Django secret key
+- `OPENAI_KEY`: Your OpenAI API key for accessing GPT models
+- `GPT_MODEL`: The name of the GPT model to use (e.g. "gpt-4")
+- `CODE_PATH`: Absolute path to the project directory
+- `STATIC_ROOT`: Location of static files in production
+- `DB_NAME`: Name of the PostgreSQL database
+- `DB_HOST`: Hostname of the PostgreSQL database
+- `DB_PORT`: Port number for the PostgreSQL database (default: 5432)
+- `DB_CA_PATH`: Path to the SSL certificate bundle for database connection
+- `SECRET_KEY`: Django secret key for cryptographic signing
 
 ## Installation
 
 1. Install Python 3.10 or later
-2. Install the required packages: `pip install -r requirements.txt`
-3. Set up the environment variables listed above
-4. Run the development server: `python manage.py runserver`
+2. Install the required python packages: `pip install -r requirements.txt`
+3. Install and set up additional dependencies based on individual instructions:
+   1. Tesseract-ocr ([https://tesseract-ocr.github.io/tessdoc/Installation.html])
+   2. Postgres server for local testing ([https://www.postgresql.org/download/])
+4. Set up the environment variables listed above
+5. Run the development server: `python manage.py runserver`
 
 ## Usage
 

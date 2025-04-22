@@ -15,8 +15,7 @@ from django.shortcuts import render, redirect
 from pdf2docx import Converter
 import os
 from server.util import session_lock
-import io
-import base64
+import io, base64
 
 session_engine = import_module(settings.SESSION_ENGINE)
 
@@ -38,11 +37,6 @@ def summarize(request):
 	except: pass
 	request.session['db_len'] = -1
 	request.session['prompt_append'] = []
-	
-	#clean up previous summaries
-	dirname = settings.CHROMA_URL + id
-	if not settings.TEST_WITHOUT_AI:
-		if os.path.isdir(dirname): shutil.rmtree(dirname)
 	
 	#store input file in session as base64
 	file = request.FILES['file']
@@ -136,11 +130,6 @@ def cyclekey(request):
 def clear(request):
 	if request.method != 'POST':
 		return HttpResponseNotAllowed(['POST'])
-	id = request.session.session_key
-	if id:
-		dirname = settings.CHROMA_URL + id
-		if os.path.isdir(dirname):
-			shutil.rmtree(dirname)
 	request.session.clear()
 	return redirect(home)
 

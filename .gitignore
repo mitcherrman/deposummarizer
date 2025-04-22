@@ -4,12 +4,9 @@ pdf_text.txt
 summaries/*
 databases/*
 depos/*
-COMPLAINT FILED (03847678xAE610).PDF
-DEPOSITION - Cribbs.Samuel   090823.full.pdf
-JohnSmithdemodeposition-1.pdf
 upload.sh
 scripts
 gunicorn
-db.sqlite3
 .DS_Store
-.chroma
+.certs
+.pg

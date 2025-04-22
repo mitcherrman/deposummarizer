@@ -1,11 +1,14 @@
 import os
 from decouple import config
+from django.conf import settings
 from threading import Lock
-import boto3
+import boto3, json, ssl
 from botocore.exceptions import ClientError
 
 #used to avoid race conditions when modifying sessions outside of views
 session_lock = Lock()
+
+DB_SSL_CONTEXT = ssl.create_default_context(cafile=config('DB_CA_PATH'))
 
 def clearTmp(name = None):
     TMP_URL = config("TMP_URL")
@@ -36,3 +39,16 @@ def get_secret(name, region = "us-east-2"):
 
     secret = get_secret_value_response['SecretString']
     return secret
+    
+def get_db_sqlalchemy_url(psycopgFormat=False):
+    if settings.DEBUG or settings.TEST_WITH_LOCAL_DB:
+        return f"postgresql{'+psycopg' if not psycopgFormat else ''}://postgres:postgres@localhost/postgres"
+    return f"postgresql{'+psycopg' if not psycopgFormat else ''}://{json.loads(get_secret(config('DB_SECRET_ARN')))['username']}:{json.loads(get_secret(config('DB_SECRET_ARN')))['password']}@{config('DB_HOST')}/{config('DB_NAME')}"
+
+def get_pgvector_engine_args():
+    if settings.DEBUG or settings.TEST_WITH_LOCAL_DB: return None
+    return {
+        "connect_args": {
+            "ssl_context": DB_SSL_CONTEXT
+        }
+    }
