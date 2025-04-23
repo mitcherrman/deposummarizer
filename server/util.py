@@ -49,6 +49,7 @@ def get_pgvector_engine_args():
     if settings.DEBUG or settings.TEST_WITH_LOCAL_DB: return None
     return {
         "connect_args": {
-            "ssl_context": DB_SSL_CONTEXT
+            "sslmode": "verify-full",
+            "sslrootcert": config('DB_CA_PATH')
         }
     }
