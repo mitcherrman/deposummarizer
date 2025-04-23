@@ -18,9 +18,10 @@ from django.contrib import admin
 from django.urls import path
 from django.views.generic.base import RedirectView
 from . import views
+from django.conf import settings
 
 urlpatterns = [
-    path('admin', admin.site.urls),
+    #path('admin', admin.site.urls),
     #pages
     path('', RedirectView.as_view(url='/home'), name='home'),
     path("home", views.home, name="home"),
@@ -34,6 +35,7 @@ urlpatterns = [
     path('chat', views.chat_html, name='chat'),
     path('ask', views.ask, name='ask'),
     path('out/verify', views.verify, name='verify'),
+    path('clear', views.clear, name='clear'),
     #downloadable
     path('out', RedirectView.as_view(url='/out/pdf'), name='out_pdf'),
     path('out/pdf', views.out, name='out_pdf'),
@@ -43,9 +45,9 @@ urlpatterns = [
     path('create', views.create_account, name='create'),
     path('auth', views.auth, name='auth'),
     path('logout', views.logout_user, name='logout'),
-    path('delete', views.delete_account, name='delete'),
-    #dev views
-    path('clear', views.clear, name='clear'),
+    path('delete', views.delete_account, name='delete')
+] + ([
+    #dev, disabled in production
     path('session', views.session, name='session'),
     path('cyclekey', views.cyclekey, name='cyclekey')
-]
+] if settings.DEBUG else [])

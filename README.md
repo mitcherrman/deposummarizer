@@ -36,7 +36,7 @@ The following environment variables must be set:
 The app uses:
 - Django for the web framework
 - OpenAI's GPT models for text generation
-- Chroma for vector storage and similarity search
+- PGVector for vector storage and similarity search
 - Session database for storing uploaded and generated PDFs
 - PyMuPDF for PDF processing
 - Langchain for AI model interaction

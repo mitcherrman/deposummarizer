@@ -8,8 +8,6 @@ from botocore.exceptions import ClientError
 #used to avoid race conditions when modifying sessions outside of views
 session_lock = Lock()
 
-DB_SSL_CONTEXT = ssl.create_default_context(cafile=config('DB_CA_PATH'))
-
 def clearTmp(name = None):
     TMP_URL = config("TMP_URL")
     for file in TMP_URL:

@@ -105,11 +105,9 @@ def transcript(request):
 	response['Content-Disposition'] = 'filename=deposum_chat_transcript.txt'
 	return response
 
-#debug view to print session in console, returns 404 in production
+#debug view to print session in console, disabled in production
 @csrf_exempt
 def session(request):
-	if not settings.DEBUG:
-		return HttpResponseNotFound()
 	if not request.session.session_key:
 		request.session.save()
 	print(request.session.session_key)
@@ -117,11 +115,9 @@ def session(request):
 	print(request.session.items())
 	return HttpResponse("done")
 
-#debug view to cycle session key, returns 404 in production
+#debug view to cycle session key, disabled in production
 @csrf_exempt
 def cyclekey(request):
-	if not settings.DEBUG:
-		return HttpResponseNotFound()
 	request.session.cycle_key()
 	return HttpResponse("done")
 
