@@ -1,7 +1,5 @@
 from django.contrib.sessions.backends.db import SessionStore as Dbss
-from django.conf import settings
 from decouple import config
-from django.db import connection
 from server import util
 import psycopg
 from langchain_openai import OpenAIEmbeddings
@@ -114,19 +112,15 @@ class SessionStore(Dbss):
         try:
             with psycopg.connect(conninfo=util.get_db_sqlalchemy_url(psycopgFormat=True)) as connection:
                 with connection.cursor() as cursor:
+                    #embedding table contains cascade delete, only need to delete collection rows
                     cursor.execute("""
+                        WITH key AS (SELECT session_key FROM django_session)
                         DELETE FROM langchain_pg_collection
-                        USING django_session
                         WHERE trim(LEADING 'collection_' FROM name) NOT IN (
-                            SELECT session_key FROM django_session
+                            SELECT * FROM key
                         )
+                        RETURNING name;
                     """)
-                    cursor.execute("""
-                        DELETE FROM langchain_pg_embedding
-                        USING langchain_pg_collection
-                        WHERE langchain_pg_embedding.collection_id NOT IN (
-                            SELECT uuid FROM langchain_pg_collection
-                        )
-                    """)
-        except:
+        except Exception as e:
+            print(e)
             pass
