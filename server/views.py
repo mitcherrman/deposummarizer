@@ -97,7 +97,10 @@ def chat_html(request):
 def transcript(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
-	raw = request.session['prompt_append']
+	try:
+		raw = request.session['prompt_append']
+	except:
+		return HttpResponse()
 	dialog = ""
 	for line in raw:
 		dialog += ("Q" if line['role'] == 'user' else "A" if line['role'] == 'assistant' else "?") + ": " + line['content'] + "\n"
