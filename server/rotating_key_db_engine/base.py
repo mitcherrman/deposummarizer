@@ -8,8 +8,8 @@ import json
 class DatabaseWrapper(base.DatabaseWrapper):
 
     cached_auth = {
-        "username": "",
-        "password": ""
+        "username": "default",
+        "password": "default"
     }
 
     def get_connection_params(self):
