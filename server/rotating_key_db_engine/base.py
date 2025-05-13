@@ -8,7 +8,7 @@ import json
 class DatabaseWrapper(base.DatabaseWrapper):
 
     cached_auth = {
-        "user": "",
+        "username": "",
         "password": ""
     }
 
@@ -21,7 +21,7 @@ class DatabaseWrapper(base.DatabaseWrapper):
     
     def refresh_conn_cache(self):
         secret = json.loads(util.get_secret(config("DB_SECRET_ARN")))
-        self.cached_auth['user'] = secret['username']
+        self.cached_auth['username'] = secret['username']
         self.cached_auth['password'] = secret['password']
     
     def get_new_connection(self, conn_params):
