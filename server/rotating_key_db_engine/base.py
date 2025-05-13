@@ -2,7 +2,7 @@ from django.db.backends.postgresql import base
 from server import util
 from decouple import config
 from django.conf import settings
-from psycopg import OperationalError
+from psycopg.errors import lookup
 import json
 
 class DatabaseWrapper(base.DatabaseWrapper):
@@ -27,9 +27,6 @@ class DatabaseWrapper(base.DatabaseWrapper):
     def get_new_connection(self, conn_params):
         try:
             return super().get_new_connection(conn_params)
-        except OperationalError as e:
-            if e.pgcode == '28P01':
-                self.refresh_conn_cache()
-                return super().get_new_connection(conn_params)
-            else:
-                raise e
+        except lookup("28P01") as e:
+            self.refresh_conn_cache()
+            return super().get_new_connection(conn_params)
