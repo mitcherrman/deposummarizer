@@ -211,7 +211,7 @@ def split_text_by_page(text):
         l = len(line)
         while l > i and (ord(line[i]) <= 32 or ord(line[i]) >= 127):
             i += 1
-        if l > i+1 and line[i] == '1' and not line[i+1].isdigit():
+        if l > i and line[i] == '1' and (l == i+1 or not line[i+1].isdigit()):
             pages.append(f"Page {page_num}:\n{line}")
             page_num += 1
         elif l > i:
