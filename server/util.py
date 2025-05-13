@@ -2,7 +2,7 @@ import os
 from decouple import config
 from django.conf import settings
 from threading import Lock
-import boto3, json, ssl
+import boto3, json
 from botocore.exceptions import ClientError
 
 #used to avoid race conditions when modifying sessions outside of views

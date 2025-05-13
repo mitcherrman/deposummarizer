@@ -82,7 +82,7 @@ WSGI_APPLICATION = 'server.wsgi.application'
 DATABASES = {
     #values for local testing, change depending on local environment
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'server.rotating_key_db_engine',
         'NAME': "postgres",
         'USER': "postgres",
         'PASSWORD': "postgres",
@@ -91,10 +91,10 @@ DATABASES = {
     }
 } if DEBUG or TEST_WITH_LOCAL_DB else {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'server.rotating_key_db_engine',
         'NAME': config("DB_NAME"),
-        'USER': json.loads(util.get_secret(config("DB_SECRET_ARN")))['username'],
-        'PASSWORD': json.loads(util.get_secret(config("DB_SECRET_ARN")))['password'],
+        'USER': "default",
+        'PASSWORD': "default",
         'HOST': config("DB_HOST"),
         'PORT': config("DB_PORT")
     }

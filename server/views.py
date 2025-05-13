@@ -1,4 +1,4 @@
-from django.http import HttpResponse, HttpResponseNotFound, HttpResponseNotAllowed, HttpResponseServerError, HttpResponseBadRequest
+from django.http import HttpResponse, HttpResponseNotAllowed, HttpResponseServerError, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
 import django.template.loader as ld
@@ -6,14 +6,11 @@ from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User
 from server.summary.summarizer import create_summary
 from server.summary.deposition_chatbot import askQuestion
-import shutil, os
 from threading import Thread
 from importlib import import_module
-import json
 from decouple import config
 from django.shortcuts import render, redirect
 from pdf2docx import Converter
-import os
 from server.util import session_lock
 import io, base64
 
