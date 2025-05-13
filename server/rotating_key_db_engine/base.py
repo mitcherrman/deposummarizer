@@ -29,4 +29,5 @@ class DatabaseWrapper(base.DatabaseWrapper):
             return super().get_new_connection(conn_params)
         except lookup("28P01") as e:
             self.refresh_conn_cache()
+            print(e.sqlstate)
             return super().get_new_connection(conn_params)
