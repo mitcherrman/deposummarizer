@@ -18,11 +18,6 @@
 </i>
 <div class="login-container">
   <form method="POST" class="login-box" id="form" enctype="multipart/form-data" action="{% url 'auth' %}">
-    {% if msg %}
-    <p class="password-warning">
-      Incorrect username/password.
-    </p>
-    {% endif %}
     {% csrf_token %}
     <label class="login-label" for="username">Username:</label>
     <input type="text" class="form-control" id="username" name="username" required>

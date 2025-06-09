@@ -11,12 +11,6 @@
     box-shadow: 2px 2px 2px #ad6735;
 }
 
-.password-warning {
-    background-color: #FFCCCC;
-    padding: 4px;
-    border-radius: 3px;
-}
-
 .bottom-warning {
     margin-top: 10px;
     margin-bottom: 0;

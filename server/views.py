@@ -4,6 +4,7 @@ from django.conf import settings
 import django.template.loader as ld
 from django.contrib.auth import login, logout, authenticate
 from django.contrib.auth.models import User
+from django.urls import reverse
 from server.summary.summarizer import create_summary
 from server.summary.deposition_chatbot import askQuestion
 from threading import Thread
@@ -30,7 +31,7 @@ def summarize(request):
 	#check if summary already started
 	try:
 		if request.session['db_len'] == -1:
-			return HttpResponse("Summary in progress, please wait.", status=409)
+			return redirect(f"{reverse(output)}?msg=Summary in progress, please wait for it to finish.")
 	except: pass
 	request.session['db_len'] = -1
 	request.session['prompt_append'] = []
@@ -207,9 +208,9 @@ def create_account(request):
 	#check if user exists
 	#check for valid inputs
 	if not user or not password:
-		return redirect("/new?msg=1")
+		return redirect(f"{reverse(new_account)}?msg=Please enter a username and password.")
 	if User.objects.filter(username=user).exists():
-		return redirect("/new?msg=2")
+		return redirect(f"{reverse(new_account)}?msg=Username is already taken.")
 	auth = User.objects.create_user(user, email or None, password)
 	login(request, auth)
 	return redirect("/home")
@@ -225,7 +226,7 @@ def auth(request):
 		login(request, auth)
 		return redirect("/home")
 	else:
-		return redirect(f"{settings.LOGIN_URL}?msg=1")
+		return redirect(f"{settings.LOGIN_URL}?msg=Incorrect username/password.")
 
 #logs user out
 def logout_user(request):
@@ -264,16 +265,17 @@ def contact(request):
 def output(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
-	return render(request, "output.html")
+	return render(request, "output.html", {'msg': request.GET['msg']} if 'msg' in request.GET else None)
 
 def login_page(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
 	if request.user is None or not request.user.is_authenticated:
-		return render(request, "login.html", request.GET)
+		print(request.GET)
+		return render(request, "login.html", {'msg': request.GET['msg']} if 'msg' in request.GET else None)
 	return redirect(home)
 
 def new_account(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
-	return render(request, "new.html", request.GET)
+	return render(request, "new.html", {'msg': request.GET['msg']} if 'msg' in request.GET else None)

@@ -12,6 +12,12 @@ function topFunction() {
     window.scrollTo({top: 0, behavior: 'smooth'});
 }
 
+//removes error message
+function removeMessage() {
+    let msg = document.querySelector(".msg-container")
+    msg.parentElement.removeChild(msg);
+}
+
 //"scroll to top" button appear/disappear
 addEventListener('scroll', (event) => {
     if (window.scrollY <= 0) {

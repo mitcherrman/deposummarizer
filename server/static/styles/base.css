@@ -36,6 +36,34 @@ body {
   font-style: normal;
 }
 
+/* Error Message */
+.msg-container {
+  background-color: #FFCCCC;
+  padding: 4px;
+  padding-left: 10px;
+  margin-bottom: 5px;
+  border-radius: 3px;
+  min-height: 2.4em;
+  width: 100%;
+  overflow-y: scroll;
+}
+
+.msg-text {
+  display: block;
+  float: left;
+  width: calc(100% - 3em);
+}
+
+.msg-close-button {
+  background-color: #FFCCCC;
+  aspect-ratio: 1;
+  float: right;
+}
+
+.msg-close-icon {
+  height: 1em;
+}
+
 /* Content area */
 .container {
   background-color: #FAF0E6; /* Light Linen color for the content area */
