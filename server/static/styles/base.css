@@ -9,6 +9,8 @@ body {
 .navbar {
   background-color: #8B4513; /* SaddleBrown color for the navbar */
   color: #fff; /* White text for contrast */
+  padding-left: 1em;
+  padding-right: 1em;
 }
 
 .navbar-brand, .nav-link {

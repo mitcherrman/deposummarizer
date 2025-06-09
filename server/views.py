@@ -13,6 +13,7 @@ from decouple import config
 from django.shortcuts import render, redirect
 from pdf2docx import Converter
 from server.util import session_lock
+from . import util
 import io, base64
 
 session_engine = import_module(settings.SESSION_ENGINE)
@@ -250,7 +251,7 @@ def delete_account(request):
 def home(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
-	return render(request, "home.html")
+	return render(request, "home.html", util.params_to_dict(request, 'msg'))
 		
 def about(request):
 	if request.method != 'GET':
@@ -265,17 +266,17 @@ def contact(request):
 def output(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
-	return render(request, "output.html", {'msg': request.GET['msg']} if 'msg' in request.GET else None)
+	return render(request, "output.html", util.params_to_dict(request, 'msg'))
 
 def login_page(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
 	if request.user is None or not request.user.is_authenticated:
 		print(request.GET)
-		return render(request, "login.html", {'msg': request.GET['msg']} if 'msg' in request.GET else None)
+		return render(request, "login.html", util.params_to_dict(request, 'msg'))
 	return redirect(home)
 
 def new_account(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
-	return render(request, "new.html", {'msg': request.GET['msg']} if 'msg' in request.GET else None)
+	return render(request, "new.html", util.params_to_dict(request, 'msg'))

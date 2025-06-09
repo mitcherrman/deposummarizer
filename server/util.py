@@ -1,21 +1,19 @@
 import os
 from decouple import config
 from django.conf import settings
+from django.http import HttpResponse
 from threading import Lock
 import boto3, json
 from botocore.exceptions import ClientError
+from typing import List
 
 #used to avoid race conditions when modifying sessions outside of views
 session_lock = Lock()
-
-def clearTmp(name = None):
-    TMP_URL = config("TMP_URL")
-    for file in TMP_URL:
-        if not name or name in file:
-            os.remove(TMP_URL + file)
             
 def get_secret(name, region = "us-east-2"):
-
+    """
+    Gets a secret from AWS secrets manager if properly authenticated.
+    """
     secret_name = name
     region_name = region
 
@@ -39,11 +37,17 @@ def get_secret(name, region = "us-east-2"):
     return secret
     
 def get_db_sqlalchemy_url(psycopgFormat=False):
+    """
+    Returns a SQLAlchemy URL to the database in use.
+    """
     if settings.DEBUG or settings.TEST_WITH_LOCAL_DB:
         return f"postgresql{'+psycopg' if not psycopgFormat else ''}://postgres:postgres@localhost/postgres"
     return f"postgresql{'+psycopg' if not psycopgFormat else ''}://{json.loads(get_secret(config('DB_SECRET_ARN')))['username']}:{json.loads(get_secret(config('DB_SECRET_ARN')))['password']}@{config('DB_HOST')}/{config('DB_NAME')}"
 
 def get_pgvector_engine_args():
+    """
+    Returns arguments that should be used in SQLAlchemy engine.
+    """
     if settings.DEBUG or settings.TEST_WITH_LOCAL_DB: return None
     return {
         "connect_args": {
@@ -51,3 +55,9 @@ def get_pgvector_engine_args():
             "sslrootcert": config('DB_CA_PATH')
         }
     }
+
+def params_to_dict(request: HttpResponse, *params: List[str]):
+    """
+    Gets parameters from an HttpResponse object and converts them to a dict that includes specified params for easy use in templates.
+    """
+    return {param: request.GET[param] for param in params if param in request.GET}
