@@ -148,7 +148,7 @@ TEST_WITHOUT_AI = False #if set to true, does not recreate database and generate
 
 SESSION_ENGINE = 'server.vector_db_session'
 
-SESSION_COOKIE_AGE = 60 * 60 * 12
+SESSION_COOKIE_AGE = 60 * 60 * 12 #12 hours
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 

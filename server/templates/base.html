@@ -42,9 +42,9 @@
           </li>
           <li class="nav-item">
             {% if user.is_authenticated %}
-            <form method="POST" action="/logout">
+            <form id="logoutForm" method="POST" action="/logout">
               {% csrf_token %}
-              <button type="submit" class="nav-link log-btn logout">Hello, {{ user.get_username }}. <b class="log-text">Log out</b></button>
+              <button onclick="logoutConfirm()" class="nav-link log-btn logout">Hello, {{ user.get_username }}. <b class="log-text">Log out</b></button>
             </form>
             {% else %}
             <a class="nav-link log-btn" href="/login">Not logged in. <b class="log-text">Log in</b></a>

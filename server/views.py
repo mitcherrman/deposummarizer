@@ -272,7 +272,6 @@ def login_page(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
 	if request.user is None or not request.user.is_authenticated:
-		print(request.GET)
 		return render(request, "login.html", util.params_to_dict(request, 'msg'))
 	return redirect(home)
 

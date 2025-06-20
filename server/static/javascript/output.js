@@ -114,11 +114,6 @@ function changeDownloadFormat() {
 //confirm clearing data
 function clearConfirm() {
     if (confirm("This will clear all of the data you entered, including documents and chat logs. Are you sure you want to do this?")) {
-        redirect = document.createElement("form");
-        redirect.setAttribute("hidden", "");
-        redirect.action = "/clear";
-        redirect.method = "post";
-        document.body.append(redirect);
-        redirect.submit();
+        document.getElementById("clearForm").submit();
     }
 }

@@ -18,6 +18,13 @@ function removeMessage() {
     msg.parentElement.removeChild(msg);
 }
 
+//confirm logout
+function logoutConfirm() {
+    if (confirm("Are you sure you want to log out? This will clear your data.")) {
+        document.getElementById("logoutForm").submit();
+    }
+}
+
 //"scroll to top" button appear/disappear
 addEventListener('scroll', (event) => {
     if (window.scrollY <= 0) {
