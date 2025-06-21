@@ -50,7 +50,12 @@ def summarize(request):
 		with session_lock:
 			s = session_engine.SessionStore(id)
 			if s.exists(id):
+				#update number of documents successfully summarized
 				s['db_len'] = l
+				if s.get('num_docs'):
+					s['num_docs'] += 1
+				else:
+					s['num_docs'] = 1
 				s.save()
 	t = Thread(target=r,args=[id])
 	with session_lock:
@@ -62,22 +67,27 @@ def summarize(request):
 def ask(request):
 	if request.method != 'POST':
 		return HttpResponseNotAllowed(['POST'])
-	if not request.session.session_key:
-		request.session.save()
-	id = request.session.session_key
+	s = request.session
+	if not s.session_key:
+		s.save()
+	id = s.session_key
 	try:
 		data = request.POST
 	except:
 		return HttpResponseBadRequest("Malformed body, should have a \"question\" element in the body")
 	print(f"[{id}]: {data}")
 	#check for finished summary
-	if (not request.session.get('db_len')) or request.session['db_len'] <= 0: return HttpResponse("No file summarized", status=409)
+	if (not s.get('db_len')) or s['db_len'] <= 0: return HttpResponse("No file summarized", status=409)
 	if not data.get('question'):
 		return HttpResponseBadRequest("Please enter a question.")
-	response = askQuestion(data['question'], id, request.session['prompt_append'], request.session['db_len'])
+	response = askQuestion(data['question'], id, s['prompt_append'], s['db_len'])
 	if response == None:
 		return HttpResponseServerError("Something went wrong with the OpenAI call, please try again later.")
-	request.session['prompt_append'] = response[1]
+	s['prompt_append'] = response[1]
+	if s.get('num_questions'):
+		s['num_questions'] += 1
+	else:
+		s['num_questions'] = 1
 	return HttpResponse(response[0])
 
 def chat_html(request):

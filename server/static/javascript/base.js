@@ -1,5 +1,5 @@
 //test url
-urls = ['bearsummarizer.com', 'bear-ai-summarizer.com', '127.0.0.1'];
+urls = ['bearsummarizer.com', 'bear-ai-summarizer.com', '127.0.0.1', 'localhost'];
 if (urls.indexOf(window.location.hostname) < 0) {
     document.getRootNode().childNodes[1].innerHTML = '';
     throw new Error("Invalid URL");
