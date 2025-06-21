@@ -7,8 +7,8 @@ A web app that summarizes legal depositions using AI.
 The following environment variables must be set:
 - `OPENAI_KEY`: Your OpenAI API key for accessing GPT models
 - `GPT_MODEL`: The name of the GPT model to use (e.g. "gpt-4")
-- `DEBUG_MODE`: Boolean that enables more verbose logging.=
-- `USE_LOCAL_DB`: Boolean for whether it runs in a local PostgreSQL instance
+- `DEBUG_MODE`: Boolean, `True` enables more verbose logging
+- `USE_LOCAL_DB`: Boolean, `True` if it runs in a local PostgreSQL instance
 - `CODE_PATH`: Absolute path to the project directory
 - `STATIC_ROOT`: Location of static files in production
 - `DB_NAME`: Name of the PostgreSQL database
