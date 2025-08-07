@@ -1,11 +1,44 @@
+# ── Project secrets / local data ─────────────────────────────────────
 .env
+.certs/
+.pg/
 deposition1.pdf
 pdf_text.txt
-summaries/*
-depos/*
+summaries/
+depos/
 upload.sh
-scripts
+scripts/
 gunicorn
+
+# ── Editor & IDE folders ────────────────────────────────────────────
+.vscode/
+.idea/
+*.code-workspace
+
+# ── Virtual-environment & tooling artefacts ─────────────────────────
+venv/
+env/
+.venv/
+python_env/
+# Poetry / Pipenv
+.poetry/
+pip-wheel-metadata/
+Pipfile.lock
+
+# ── Python byte-code & caches ───────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyd
+
+# ── Logs & runtime files ────────────────────────────────────────────
+*.log
+*.pid
+*.sqlite3
+*.db
+*.coverage
+coverage.xml
+htmlcov/
+
+# ── OS noise ────────────────────────────────────────────────────────
 .DS_Store
-.certs
-.pg
+Thumbs.db

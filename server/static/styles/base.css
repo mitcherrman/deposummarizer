@@ -1,112 +1,81 @@
-/* General background styling */
-body {
-  background-color: #f4e2d8; /* Light brown/tan background */
-  color: #5c4033; /* Dark brown text color for general readability */
-  font-family: 'Georgia', serif; /* Classic serif font for a law-themed look */
+/*  ──────────────────────────────────────────────────────────────────
+    GLOBAL (Cal Berkeley look & feel)
+    ────────────────────────────────────────────────────────────────── */
+:root{
+  --cal-blue: #003262;
+  --cal-gold: #FDB515;
+  --cal-gold-dark: #c58800;
+  --cal-offwhite: #fdf9ef;
+  --cal-gray: #e5e5e5;
+  --cal-shadow: rgba(0,0,0,.15);
 }
 
-/* Navbar styling */
-.navbar {
-  background-color: #8B4513; /* SaddleBrown color for the navbar */
-  color: #fff; /* White text for contrast */
-  padding-left: 1em;
-  padding-right: 1em;
+body{
+  background-color: var(--cal-offwhite);
+  color:#0d0d0d;
+  font-family:'Roboto','Segoe UI',sans-serif;
 }
 
-.navbar-brand, .nav-link {
-  color: #fff !important; /* White text for the links */
+/*  NAVBAR  */
+.navbar{
+  background-color: var(--cal-blue);
+  padding-left:1em;padding-right:1em;
+  box-shadow:0 2px 5px var(--cal-shadow);
+}
+.navbar-brand,.nav-link{
+  color:#fff !important;
+  font-weight:600;
+}
+.navbar-brand:hover,.nav-link:hover{
+  color:var(--cal-gold) !important;
+}
+.navbar-toggler:hover{
+  background-color:#002147;
 }
 
-.navbar-brand:hover, .nav-link:hover {
-  color: #D2B48C !important; /* Tan color on hover for contrast */
+/*  LOGIN / LOGOUT */
+.logout{background:transparent;border:0}
+.log-btn{font-style:italic;color:#fff !important}
+.log-text{font-style:normal}
+
+/*  MESSAGES  */
+.msg-container{
+  background:#ffd9d9;
+  border-left:6px solid #ff5252;
+  padding:.4rem .6rem;
+  border-radius:4px;
+  margin-bottom:8px;
+  max-height:8rem;overflow-y:auto;
+}
+.msg-close-button{background:transparent;border:0;float:right}
+
+/*  CONTENT WRAPPER  */
+.container{
+  background:#fff;
+  padding:24px;
+  border-radius:8px;
+  box-shadow:0 4px 8px var(--cal-shadow);
+  margin-top:24px;
 }
 
-.navbar-toggler:hover {
-  background-color: #ad6735; /* Darker brown for hover */
+/*  “GO TO TOP” BUTTON  */
+#goToTopBtn{
+  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
+  z-index:99;
+  border:0;border-radius:50%;width:48px;height:48px;
+  background:var(--cal-gold);color:#001;
+  font-size:20px;font-weight:700;line-height:44px;text-align:center;
+  box-shadow:0 3px 6px var(--cal-shadow);
 }
+#goToTopBtn:hover{background:var(--cal-gold-dark)}
 
-.logout {
-  background-color: transparent;
-  border-width: 0;
-}
+/*  HEADINGS  */
+h1,h2,h3{color:var(--cal-blue);font-family:'Georgia','Times New Roman',serif}
 
-.log-btn {
-  font-style: italic;
-}
-
-.log-text {
-  font-style: normal;
-}
-
-/* Error Message */
-.msg-container {
-  background-color: #FFCCCC;
-  padding: 4px;
-  padding-left: 10px;
-  margin-bottom: 5px;
-  border-radius: 3px;
-  min-height: 2.4em;
-  width: 100%;
-  overflow-y: scroll;
-}
-
-.msg-text {
-  display: block;
-  float: left;
-  width: calc(100% - 3em);
-}
-
-.msg-close-button {
-  background-color: #FFCCCC;
-  aspect-ratio: 1;
-  float: right;
-}
-
-.msg-close-icon {
-  height: 1em;
-}
-
-/* Content area */
-.container {
-  background-color: #FAF0E6; /* Light Linen color for the content area */
-  padding: 20px;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-  position: relative;
-  top: 20px
-}
-
-/* Button styling */
-#goToTopBtn {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 99;
-  font-size: 18px;
-  background-color: #8B4513; /* SaddleBrown */
-  color: white;
-  border: none;
-  outline: none;
-  cursor: pointer;
-  padding: 10px 15px;
-  border-radius: 50px;
-  display: block; /* Always visible */
-}
-
-#goToTopBtn:hover {
-  background-color: #5c4033; /* Darker brown for hover */
-}
-
-/* Customize headings */
-h1, h2, h3 {
-  color: #5c4033; /* Darker brown for headings */
-}
-
-/* Optional background pattern for a more sophisticated feel */
-body {
-  /*background-image: url("{% static 'images/background-pattern.png' %}"); /* Example background pattern image */
-  background-size: cover;
-  background-repeat: no-repeat;
-  background-position: center;
+/*  OPTIONAL diagonal bear-claw accent (subtle)  */
+body::after{
+  content:"";position:fixed;top:-20vh;right:-20vw;
+  width:60vw;height:60vh;
+  background:url("/static/images/bear-claw.svg") no-repeat center/cover;
+  opacity:.03;pointer-events:none;
 }

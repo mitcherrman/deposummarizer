@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load static %} <!-- Load the static files -->
+{% load static %}
 
 {% block title %} Home Page | Deposum {% endblock %}
 
@@ -9,21 +9,60 @@
 
 {% block content %}
 <script src="{% static 'javascript/home.js' %}"></script>
+
 <h1>Upload a PDF of your deposition to Deposum</h1>
-<form method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
-    {% csrf_token %}
-    <div class="form-group">
-        <label for="fileInput">Choose a file:</label>
-        <input type="file" class="form-control" id="fileInput" name="file" required>
-    </div>
-    <button class="btn btn-primary" id="btnClicked" onclick="if (validateForm()) document.getElementById('form').submit();">Summarize</button>
+
+<form method="POST" action="{% url 'clear' %}" style="display:inline;">
+  {% csrf_token %}
+  <button class="btn btn-sm btn-warning">Clear data</button>
 </form>
 
+
+<form id="form" method="POST" enctype="multipart/form-data" action="{% url 'summarize' %}">
+    {% csrf_token %}
+
+    <!-- ───── PDF chooser ───── -->
+    <div class="mb-3">
+        <label for="fileInput" class="form-label">Choose a PDF:</label>
+        <input type="file" class="form-control" id="fileInput" name="file" accept="application/pdf" required>
+    </div>
+
+    <!-- ───── NEW: language selector ───── -->
+    <div class="mb-3">
+        <label class="form-label d-block">Summary language:</label>
+
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="lang" id="langEn"  value="en"  checked>
+            <label class="form-check-label" for="langEn">English</label>
+        </div>
+
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="lang" id="langEs"  value="es">
+            <label class="form-check-label" for="langEs">Spanish</label>
+        </div>
+
+        <div class="form-check form-check-inline">
+            <input class="form-check-input" type="radio" name="lang" id="langBoth" value="both">
+            <label class="form-check-label" for="langBoth">Both</label>
+        </div>
+    </div>
+
+    <!-- ───── Submit button ───── -->
+    <button type="submit" class="btn btn-primary" id="btnClicked"
+            onclick="if (validateForm()) document.getElementById('form').submit();">
+        Summarize
+    </button>
+</form>
+
+<!-- loading spinner -->
 <div id="loading" style="display:none; margin-top: 10px;">
-    Processing... <img src="{% static '/images/gavel-judge.gif' %}" alt="Loading..." style="width: 50px; height: 50px;">
+    Processing…
+    <img src="{% static '/images/gavel-judge.gif' %}" alt="Loading…" style="width:50px;height:50px;">
 </div>
 
+<!-- already-have-summary hint -->
 <p class="output-url" hidden>
-    It appears that you have already summarized a document - <a href="{% url 'output' %}">you can find the summary here.</a>
+    It appears that you have already summarized a document —
+    <a href="{% url 'output' %}">you can find the summary here.</a>
 </p>
 {% endblock %}

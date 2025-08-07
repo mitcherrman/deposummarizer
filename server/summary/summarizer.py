@@ -1,283 +1,225 @@
-import fitz  # PyMuPDF
-import time
-import io
-import os
-import logging
+"""
+summarizer.py – Deposition → PDF summary (English / Spanish)
+
+• Extracts machine-readable text page-by-page
+• Builds English / Spanish summaries with OpenAI
+• Stores finished PDF in session so /out/verify stops polling
+"""
+
+import io, base64, logging, time, fitz
+
+import openai                                   # ← works for both 0.x & 1.x
 from reportlab.lib.pagesizes import letter
-from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-from reportlab.lib import colors
+from reportlab.lib.styles  import getSampleStyleSheet, ParagraphStyle
+from reportlab.platypus    import SimpleDocTemplate, Paragraph, Spacer
+from reportlab.lib         import colors
+
 from langchain_openai import ChatOpenAI
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 from decouple import config
-import server.summary.deposition_chatbot as cb  # Reintroducing chatbot
 from django.conf import settings
 from importlib import import_module
 from server.util import session_lock
-import base64
+import server.summary.deposition_chatbot as cb
 
+
+# ─────────────────── Session helpers ───────────────────
 session_engine = import_module(settings.SESSION_ENGINE)
 
-# Set up logging
-logging.basicConfig(level=logging.INFO)
+def update_status_msg(sid: str, msg: str):
+    with session_lock:
+        s = session_engine.SessionStore(sid)
+        if s.exists(sid):
+            s["status_msg"] = msg
+            s.save()
 
-# Initialize Langchain OpenAI model
-llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'))  # Secure API key handling
+# ─────────────────── OpenAI clients ─────────────────────
+OPENAI_KEY = config("OPENAI_KEY").strip()
+GPT_MODEL  = config("GPT_MODEL", default="gpt-4o-mini").strip()
+print("OPENAI_KEY seen by app:", repr(OPENAI_KEY[:10] + "…"))
 
-# Define a prompt template for better input to the LLM
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You will be given a legal deposition. Provide a brief summary of each page, considering the context of the entire document."),
-    ("user", "{input}")
-])
+llm = ChatOpenAI(openai_api_key=OPENAI_KEY, model_name=GPT_MODEL)
+translator_llm = ChatOpenAI(openai_api_key=OPENAI_KEY,
+                            model_name="gpt-3.5-turbo-0125")
 
-# Initialize output parser to convert chat message to string
-output_parser = StrOutputParser()
+def translate_to_spanish(text: str) -> str:
+    sys = ("You are a professional translator. Translate the following text "
+           "from English to Spanish. Use clear, neutral Spanish and keep line "
+           "breaks.")
+    prompt = [{"role": "system", "content": sys},
+              {"role": "user",   "content": text}]
+    return translator_llm.invoke(prompt).content.strip()
 
-# Combine prompt, LLM, and output parser into a chain
-chain = prompt | llm | output_parser
-
-# Helper function to determine if a page is valid for processing based on content length or keywords
+# ─────────────────── PDF text extraction ───────────────
 KEYWORDS = ["Exhibit", "Affidavit", "Page", "Witness"]
-def is_page_valid(text, min_length=150, keywords=KEYWORDS):
-    if len(text) >= min_length:
-        return True
-    for keyword in keywords:
-        if keyword.lower() in text.lower():
-            return True
-    return False
 
-# Remove marginal text (headers, footers, side margins)
-def remove_marginal_text(input_buffer, output_buffer):
-    pdf_document = fitz.open(stream=input_buffer, filetype="pdf")
-    new_pdf = fitz.open()  # Create a new PDF
+def is_page_valid(txt, min_len=150):
+    return len(txt) >= min_len or any(k.lower() in txt.lower() for k in KEYWORDS)
 
-    for page_num in range(pdf_document.page_count):
-        page = pdf_document.load_page(page_num)
-        page_rect = page.rect  # Get the page dimensions
+def extract_text_pages(pdf_buf: io.BytesIO, sid: str):
+    """Return a list of clean text—one element per PDF page."""
+    doc = fitz.open(stream=pdf_buf, filetype="pdf")
+    pages, total = [], doc.page_count
 
-        # Define threshold areas for headers, footers, and side margins
-        header_threshold = 0.1 * page_rect.height  # Top 10% of the page
-        footer_threshold = 0.9 * page_rect.height  # Bottom 10% of the page
-        side_margin_threshold = 0.1 * page_rect.width  # Left and right 10% of the page
+    for idx, page in enumerate(doc, start=1):
+        if total < 15 or idx % 5 == 1:
+            pct = int(idx / total * 100)
+            update_status_msg(sid, f"Extracting text… {pct}% ({idx}/{total})")
 
-        # Extract all text blocks
-        text_blocks = page.get_text("dict")['blocks']
-
-        # Create a new page to copy only the main text
-        new_page = new_pdf.new_page(width=page_rect.width, height=page_rect.height)
-
-        # Iterate over text blocks and filter out marginal content
-        for block in text_blocks:
-            if 'lines' in block:
-                for line in block['lines']:
-                    for span in line['spans']:
-                        block_rect = fitz.Rect(span['bbox'])
-                        text = span['text']
-
-                        # Skip blocks in the header, footer, or side margins
-                        if (block_rect.y1 <= header_threshold or
-                            block_rect.y0 >= footer_threshold or
-                            block_rect.x0 <= side_margin_threshold or
-                            block_rect.x1 >= page_rect.width - side_margin_threshold):
-                            continue  # This is marginal content, skip it
-
-                        # Otherwise, re-insert the content in the new PDF using default font
-                        new_page.insert_text((block_rect.x0, block_rect.y0), text, fontsize=span['size'])
-
-    pdf_document.close()
-
-    # Save the new PDF to the output buffer
-    new_pdf.save(output_buffer)
-    new_pdf.close()
-
-# Extracts text from the PDF, ignoring top and bottom margins.
-# Returns the extracted text as a string.
-def extract_text_with_numbers(pdf_buffer, exclude_top=40, exclude_bottom=70, number_margin=True):
-    try:
-        doc = fitz.open(stream=pdf_buffer, filetype="pdf")
-    except Exception as e:
-        logging.error(f"Error opening PDF buffer: {e}")
-        raise ValueError("Could not open PDF from buffer")
-    
-    all_text = []
-    for page_num, page in enumerate(doc):
-        page_height = page.rect.height
-        if not fitz.get_tessdata():
-            logging.error("Tesseract is not installed")
-            raise RuntimeError()
-        ocr_page = page.get_textpage_ocr()
-        text_blocks = page.get_text("blocks", textpage=ocr_page)
-        filtered_text = "\n".join(block[4] for block in text_blocks) #extract_filtered_text(text_blocks, page_height, exclude_top, exclude_bottom)
-
-        if is_page_valid(filtered_text):
-            all_text.append(f"\n{filtered_text}")
-            logging.info(f"Processed page {page_num + 1}, content size {len(filtered_text)}")
+        text_native = page.get_text("text")
+        if is_page_valid(text_native):
+            pages.append(text_native.strip())
+            logging.info(f"✓ page {idx} ({len(text_native)} chars)")
         else:
-            logging.info(f"Skipped page {page_num + 1}, content size {len(filtered_text)}")
-
+            logging.info(f"× page {idx} skipped (no embedded text)")
     doc.close()
-    return "".join(all_text)
-
-# Filter out text blocks within excluded areas.
-def extract_filtered_text(blocks, page_height, exclude_top, exclude_bottom):
-    return "\n".join(
-        block[4] for block in blocks 
-        if not (block[1] < exclude_top or block[3] > page_height - exclude_bottom) and block[4].strip()
-    )
-
-# Writes summaries to a PDF file at the given output path.
-def write_summaries_to_pdf(summaries, output):
-    doc = SimpleDocTemplate(
-        output,
-        pagesize=letter,
-        leftMargin=72, rightMargin=72, topMargin=72, bottomMargin=72  # Adjust margins for readability
-    )
-    story = build_pdf_story(summaries)
-    doc.build(story)
-
-# Build the paragraphs and structure for the PDF document with improved styling
-def build_pdf_story(summaries):
-    styles = getSampleStyleSheet()
-
-    # Define styles for the page headers and summaries
-    page_style = ParagraphStyle(
-        name='Page',
-        parent=styles['Normal'],
-        fontSize=16,  # Larger font size for page headers
-        leading=16,
-        spaceAfter=12,
-        textColor=colors.HexColor('#007bff'),  # Blue color for page titles
-        fontName="Helvetica-Bold"
-    )
-
-    summary_style = ParagraphStyle(
-        name='Summary',
-        parent=styles['Normal'],
-        fontSize=12,
-        leading=14,
-        spaceAfter=10,
-        textColor=colors.black,
-        fontName="Times-Roman",
-        borderPadding=(5, 5, 5, 5),  # Add some padding around the summaries
-        backColor=colors.whitesmoke,  # Light background for summaries
-        borderColor=colors.black,
-        borderWidth=1,
-        borderRadius=5
-    )
-    
-    story = []
-    
-    # Iterate over the list of summaries
-    for i, summary in enumerate(summaries, start=1):  # Use enumerate to get the page number
-        # Page header with larger font and color
-        story.append(Paragraph(f"Page {i}", page_style))
-        
-        # Summary paragraph with enhanced formatting
-        story.append(Paragraph(summary, summary_style))
-        
-        story.append(Spacer(1, 12))  # Add some space between summaries
-    
-    return story
-
-# Sends text to the language model and returns the summary.
-def summarize_deposition_text(text):
-    try:
-        response = chain.invoke({"input": text, "max_tokens": 52000})
-        return response.strip()
-    except Exception as e:
-        logging.error(f"Error summarizing text: {e}")
-        return ""
-
-# Summarizes each page of the deposition and returns the summaries.
-def summarize_deposition(text_pages, id):
-    summaries = []  # Use a list to store summaries in order
-    for page_num, page in enumerate(text_pages, start=1):
-        update_status_msg(id, f"Summarizing page {page_num} of {len(text_pages)}...")
-        if len(page) > 150:
-            summary = summarize_deposition_text(page)
-            summaries.append(summary)  # Store summaries in the list in order
-        else:
-            logging.info(f"[{id}]: Skipped page {page_num} with size {len(page)}")
-    return summaries
-
-# Split extracted text into pages, assuming each page starts with "Page" followed by a number.
-def split_text_by_page(text):
-    lines = text.split('\n')
-    pages = [""]
-    page_num = 0
-    for line in lines:
-        i = 0
-        l = len(line)
-        while l > i and (ord(line[i]) <= 32 or ord(line[i]) >= 127):
-            i += 1
-        if l > i and line[i] == '1' and (l == i+1 or not line[i+1].isdigit()):
-            pages.append(f"Page {page_num}:\n{line}")
-            page_num += 1
-        elif l > i:
-            pages[-1] = f"{pages[-1]} {line}"
+    logging.info(f"{len(pages)} content pages collected.")
     return pages
 
-def update_status_msg(id, msg):
-    with session_lock:
-        session = session_engine.SessionStore(id)
-        if session.exists(id):
-            session['status_msg'] = msg
-            session.save()
 
-# Orchestrates the entire summary process: from removing marginal text, extracting text, splitting it into pages,
-# summarizing it, and writing the final summaries to a PDF.
-def create_summary(pdf_data, id):
-    if not pdf_data:
-        logging.error(f"[{id}]: No PDF data provided")
-        return 0
+def _chat_with_retries(client, messages, sid, label,
+                       attempts=5, backoff=8) -> str:
+    for n in range(1, attempts + 1):
+        try:
+            return client.invoke(messages).content.strip()
+        except (openai.OpenAIError, Exception) as exc:         # ← updated
+            wait = backoff * n
+            logging.warning(
+                f"[{sid}] {label}: {exc} – retry {n}/{attempts} in {wait}s"
+            )
+            update_status_msg(sid, f"{label}: retry {n}/{attempts}…")
+            time.sleep(wait)
+    return f"⚠️ {label} failed after {attempts} retries."
+
+
+# ─────────────────── Summaries ────────────────────────────────────────────
+def summarize_deposition(pages, sid: str, target_lang="en"):
+    """
+    Creates one summary record per page and never aborts the whole job.
+    Each record is {"en": "...", "es": "..."} depending on target_lang.
+    """
+    summaries, total = [], len(pages)
+
+    for i, pg in enumerate(pages, start=1):
+        update_status_msg(sid, f"{i}/{total} pages processed…")
+
+        if len(pg) < 150:                      # tiny pages → ignore
+            continue
+
+        # English summary
+        en = _chat_with_retries(
+            llm,
+            [
+                {"role": "system",
+                 "content": ("You will be given part of a legal deposition. "
+                              "Provide a concise English summary (≤3 sentences).")},
+                {"role": "user", "content": pg[:4000]},
+            ],
+            sid, f"EN page {i}"
+        )
+
+        # Spanish (if requested)
+        es = ""
+        if target_lang in ("es", "both"):
+            es = _chat_with_retries(
+                translator_llm,
+                [
+                    {"role": "system",
+                     "content": ("Translate the following text into neutral "
+                                 "Spanish. Preserve line breaks.")},
+                    {"role": "user", "content": en},
+                ],
+                sid, f"ES page {i}"
+            )
+
+        rec = {}
+        if target_lang in ("en", "both"):
+            rec["en"] = en
+        if target_lang in ("es", "both"):
+            rec["es"] = es
+        summaries.append(rec)
+
+    return summaries
+#pdf builder
+
+def write_summaries_to_pdf(summaries, out_buf: io.BytesIO, target_lang="en"):
+    doc = SimpleDocTemplate(out_buf, pagesize=letter,
+                            leftMargin=72, rightMargin=72,
+                            topMargin=72, bottomMargin=72)
+    doc.build(build_pdf_story(summaries, target_lang))
+
+def build_pdf_story(summaries, target_lang="en"):
+    styles = getSampleStyleSheet()
+    page_style = ParagraphStyle('Page', parent=styles['Normal'],
+                                fontSize=16, leading=16, spaceAfter=12,
+                                textColor=colors.HexColor('#007bff'),
+                                fontName="Helvetica-Bold")
+    style_en = ParagraphStyle('En', parent=styles['Normal'],
+                              fontSize=12, leading=14, spaceAfter=6)
+    style_es = ParagraphStyle('Es', parent=styles['Normal'],
+                              fontSize=11, leading=13,
+                              textColor=colors.grey, fontName="Times-Italic",
+                              spaceAfter=10)
+
+    story = []
+    for idx, item in enumerate(summaries, start=1):
+        story.append(Paragraph(f"Page {idx}", page_style))
+        if "en" in item and target_lang in ("en", "both"):
+            story.append(Paragraph(item["en"], style_en))
+        if "es" in item and target_lang in ("es", "both"):
+            story.append(Paragraph(item["es"], style_es))
+        story.append(Spacer(1, 8))
+    return story
+
+# ─────────────────── Orchestrator ─────────────────────────────────────────
+def create_summary(pdf_bytes: bytes, sid: str, target_lang="en") -> int:
+    """
+    End-to-end controller.
+
+    • Always sets session['db_len'] so /out/verify stops polling  
+    • Stores summary_pdf unconditionally (even if the Session row was
+      missing when the worker thread opened it)
+    """
+    db_len_value = 0                                  # pessimistic default
 
     try:
-        logging.info(f"Processing PDF data for session {id}")
-        update_status_msg(id, "Extracting text...")
+        logging.info(f"→ create_summary({sid}, bytes={len(pdf_bytes)})")
+        update_status_msg(sid, "Extracting text 0 %")
 
-        # Create BytesIO objects for processing
-        pdf_buffer = io.BytesIO(pdf_data)
-        cleaned_buffer = pdf_buffer #io.BytesIO()
+        raw_pages = extract_text_pages(io.BytesIO(pdf_bytes), sid)
+        pages      = raw_pages[2:]                    # skip cover if desired
+        raw_text   = "\n\n".join(raw_pages)
+        db_len_value = len(pages)
 
-        # Clean up marginal text
-        #remove_marginal_text(pdf_buffer, cleaned_buffer)
-        cleaned_buffer.seek(0)
+        # optional chatbot DB
+        try:
+            update_status_msg(sid, "Configuring chatbot…")
+            cb.initBot(raw_text, sid)
+        except Exception as e:
+            logging.warning(f"[{sid}] chatbot DB skipped: {e}")
 
-        raw_text = extract_text_with_numbers(cleaned_buffer)
+        # build summaries
+        summaries = summarize_deposition(pages, sid, target_lang)
 
-        text_pages = split_text_by_page(raw_text)
+        # build PDF
+        update_status_msg(sid, "Building PDF summary…")
+        pdf_buf = io.BytesIO()
+        write_summaries_to_pdf(summaries, pdf_buf, target_lang)
 
-        #first page is residual fiiller, second a cover, no use
-        text_pages = text_pages[2:]
-
-        # Initialize chatbot for processing
-        update_status_msg(id, "Configuring chatbot...")
-        l = cb.initBot(raw_text, id)
-        
-        update_status_msg(id, "Starting summary...")
-        if not settings.TEST_WITHOUT_AI:
-            summarized_pages = summarize_deposition(text_pages, id)
-            # Store summary in session as base64
-            with session_lock:
-                s = session_engine.SessionStore(id)
-                if s.exists(id):
-                    summary_buffer = io.BytesIO()
-                    write_summaries_to_pdf(summarized_pages, summary_buffer)
-                    s['summary_pdf'] = base64.b64encode(summary_buffer.getvalue()).decode('utf-8')
-                    s.save()
-        else:
-            summary_buffer = io.BytesIO()
-            write_summaries_to_pdf(text_pages[0:5], summary_buffer)
-            with session_lock:
-                s = session_engine.SessionStore(id)
-                if s.exists(id):
-                    s['summary_pdf'] = base64.b64encode(summary_buffer.getvalue()).decode('utf-8')
-                    s.save()
-
-        logging.info(f"[{id}]: Summary saved to session")
-        update_status_msg(id, "Finishing up...")
-        return l
     except Exception as e:
-        logging.error(f"Error in create_summary: {str(e)}")
-        return -2
+        logging.exception(f"[{sid}] create_summary crashed")
+        update_status_msg(sid, f"❌ Error: {e}")
+        db_len_value = 0                               # signal failure
+
+    # ── ALWAYS write results / finish flag ────────────────────────────────
+    finally:
+        with session_lock:
+            s = session_engine.SessionStore(sid)
+            # write the PDF only if the run succeeded
+            if db_len_value:
+                s["summary_pdf"] = base64.b64encode(pdf_buf.getvalue()).decode()
+            s["db_len"] = db_len_value                # 0 = failure, >0 = ok
+            s.save()
+
+    if db_len_value:
+        update_status_msg(sid, "Finished ✓  Ready to download.")
+    return db_len_value

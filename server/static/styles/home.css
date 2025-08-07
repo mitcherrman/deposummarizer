@@ -1,11 +1,13 @@
-.output-url {
-    font-style: italic;
-    margin-top: 20px;
+.output-url{
+  font-style:italic;margin-top:20px;
+  color:var(--cal-blue);
 }
-
-.form-control {
-  min-height: calc(1.5em + .75rem + 2px);
-  margin-top: 0.4em;
-  margin-bottom: 0.4em;
-  height: unset;
+.form-control{
+  min-height:calc(1.5em + .75rem + 2px);
+  margin:.4em 0;
 }
+button.btn-primary{
+  background:var(--cal-gold);border:0;
+  font-weight:600;color:#001;
+}
+button.btn-primary:hover{background:var(--cal-gold-dark)}

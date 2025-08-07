@@ -20,7 +20,8 @@ import json
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = config("DEBUG_MODE", cast=bool)
+DEBUG = True
+# DEBUG = config("DEBUG_MODE", cast=bool)
 
 #use local db file for testing (with debug mode off), turn off in production
 TEST_WITH_LOCAL_DB = config("USE_LOCAL_DB", cast=bool)
@@ -85,7 +86,7 @@ DATABASES = {
         'ENGINE': 'server.rotating_key_db_engine',
         'NAME': "postgres",
         'USER': "postgres",
-        'PASSWORD': "postgres",
+        'PASSWORD': "Cosgnanas,1",
         'HOST': "localhost",
         'PORT': "5432"
     }
@@ -146,9 +147,11 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 TEST_WITHOUT_AI = False #if set to true, does not recreate database and generates dummy summary to save on API calls, set to false in production
 
-SESSION_ENGINE = 'server.vector_db_session'
+# ─── sessions ────────────────────────────────────────────────────────────
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
-SESSION_COOKIE_AGE = 60 * 60 * 12 #12 hours
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 7   # keep session 1 week (optional)
+
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 

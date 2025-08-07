@@ -1,24 +1,13 @@
-.create {
-    float: left;
+.output-url{
+  font-style:italic;margin-top:20px;
+  color:var(--cal-blue);
 }
-
-.login-container {
-    display: flex;
-    flex-direction: row-reverse;
+.form-control{
+  min-height:calc(1.5em + .75rem + 2px);
+  margin:.4em 0;
 }
-
-.login-box {
-    width: 15em;
-    background-color: #D2B48C;
-    padding: 10px;
-    border-radius: 5px;
-    box-shadow: 2px 2px 2px #ad6735;
+button.btn-primary{
+  background:var(--cal-gold);border:0;
+  font-weight:600;color:#001;
 }
-
-.form-control {
-    margin-bottom: .25rem;
-}
-
-.login-btn {
-    margin-top: .5rem;
-}
+button.btn-primary:hover{background:var(--cal-gold-dark)}

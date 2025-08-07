@@ -21,23 +21,35 @@ function startCheckThread() {
 }
 
 //checks for complete summary, called periodically
+/* ---------- helper to drop spinner & show iframe ---------- */
+function insertIframe() {
+    clearInterval(checkSummaryIntervalId);
+    const parent = document.querySelector(".summary-container");
+    const load   = document.getElementById("loading");
+
+    const frame = document.createElement("iframe");
+    frame.setAttribute("src", "/out");
+    frame.style.width = "99%";
+    frame.style.aspectRatio = "3 / 2";
+    parent.prepend(frame);
+
+    document.querySelector(".body-container").removeAttribute("hidden");
+    load.parentNode.removeChild(load);
+}
+
+/* ---------- periodic poll ---------- */
 function checkSummary() {
     fetch("out/verify").then((response) => {
-        if (response.status != 200) {
-            clearInterval(checkSummaryIntervalId);
-            let parent = document.querySelector(".summary-container");
-            let load = document.getElementById("loading");
-            let frame = document.createElement("iframe");
-            frame.setAttribute("src", "/out");
-            frame.style.setProperty('width', "99%");
-            frame.style.setProperty("aspect-ratio", "3 / 2");
-            parent.prepend(frame);
-            document.querySelector(".body-container").removeAttribute("hidden");
-            load.parentNode.removeChild(load);
+        if (response.status !== 200) {
+            insertIframe();                 // finished (server closed poll)
         } else {
-            response.text().then((text) => {
-                document.getElementById("status_msg").textContent = text;
-            })
+            response.text().then((txt) => {
+                if (txt.trim() === "DONE") { // finished (explicit flag)
+                    insertIframe();
+                } else {
+                    document.getElementById("status_msg").textContent = txt;
+                }
+            });
         }
     });
 }
