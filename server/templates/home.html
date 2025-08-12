@@ -12,10 +12,6 @@
 
 <h1>Upload a PDF of your deposition to Deposum</h1>
 
-<form method="POST" action="{% url 'clear' %}" style="display:inline;">
-  {% csrf_token %}
-  <button class="btn btn-sm btn-warning">Clear data</button>
-</form>
 
 
 <form id="form" method="POST" enctype="multipart/form-data" action="{% url 'summarize' %}">
@@ -47,12 +43,29 @@
         </div>
     </div>
 
-    <!-- ───── Submit button ───── -->
-    <button type="submit" class="btn btn-primary" id="btnClicked"
-            onclick="if (validateForm()) document.getElementById('form').submit();">
-        Summarize
-    </button>
 </form>
+
+<!-- Buttons row: Summarize + Clear -->
+<div class="d-flex align-items-center gap-2 mt-2">
+  <!-- Submit the upload form by reference -->
+  <button
+    type="submit"
+    class="btn btn-primary"
+    id="btnClicked"
+    form="form"
+    onclick="if (validateForm()) document.getElementById('form').submit();"
+  >
+    Summarize
+  </button>
+
+  <!-- Clear data form -->
+  <form method="POST" action="{% url 'clear' %}" class="m-0">
+    {% csrf_token %}
+    <button class="btn btn-warning">Clear data</button>
+  </form>
+</div>
+
+
 
 <!-- loading spinner -->
 <div id="loading" style="display:none; margin-top: 10px;">

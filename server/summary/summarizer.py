@@ -2,13 +2,15 @@
 summarizer.py – Deposition → PDF summary (English / Spanish)
 
 • Extracts machine-readable text page-by-page
-• Builds English / Spanish summaries with OpenAI
+• Removes header / footer / side margins from each page
+• Falls back to OCR (Tesseract via PyMuPDF) if embedded text is poor
+• Builds English / Spanish summaries with OpenAI (LangChain)
 • Stores finished PDF in session so /out/verify stops polling
 """
 
-import io, base64, logging, time, fitz
+import io, base64, logging, time
+import fitz  # PyMuPDF
 
-import openai                                   # ← works for both 0.x & 1.x
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles  import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus    import SimpleDocTemplate, Paragraph, Spacer
@@ -21,7 +23,6 @@ from importlib import import_module
 from server.util import session_lock
 import server.summary.deposition_chatbot as cb
 
-
 # ─────────────────── Session helpers ───────────────────
 session_engine = import_module(settings.SESSION_ENGINE)
 
@@ -32,10 +33,9 @@ def update_status_msg(sid: str, msg: str):
             s["status_msg"] = msg
             s.save()
 
-# ─────────────────── OpenAI clients ─────────────────────
+# ─────────────────── OpenAI (LangChain) ─────────────────
 OPENAI_KEY = config("OPENAI_KEY").strip()
 GPT_MODEL  = config("GPT_MODEL", default="gpt-4o-mini").strip()
-print("OPENAI_KEY seen by app:", repr(OPENAI_KEY[:10] + "…"))
 
 llm = ChatOpenAI(openai_api_key=OPENAI_KEY, model_name=GPT_MODEL)
 translator_llm = ChatOpenAI(openai_api_key=OPENAI_KEY,
@@ -49,39 +49,119 @@ def translate_to_spanish(text: str) -> str:
               {"role": "user",   "content": text}]
     return translator_llm.invoke(prompt).content.strip()
 
-# ─────────────────── PDF text extraction ───────────────
+# ─────────────────── Page filters / OCR ─────────────────
 KEYWORDS = ["Exhibit", "Affidavit", "Page", "Witness"]
 
-def is_page_valid(txt, min_len=150):
+def is_page_valid(txt: str, min_len: int = 150) -> bool:
+    """Heuristic: accept if long enough or contains legal-ish keywords."""
     return len(txt) >= min_len or any(k.lower() in txt.lower() for k in KEYWORDS)
 
+def _has_tesseract() -> bool:
+    """Return True if PyMuPDF can find Tesseract data."""
+    try:
+        return bool(fitz.get_tessdata())
+    except Exception:
+        return False
+
+def _blocks_to_text_without_margins(blocks, page_rect,
+                                    top_ratio=0.08, bottom_ratio=0.08, side_ratio=0.08) -> str:
+    """
+    Accepts blocks from page.get_text('blocks', ...).
+    Filters out header/footer/side blocks, concatenates remaining text.
+    """
+    top_cut    = page_rect.height * top_ratio
+    bottom_cut = page_rect.height * (1 - bottom_ratio)
+    left_cut   = page_rect.width  * side_ratio
+    right_cut  = page_rect.width  * (1 - side_ratio)
+
+    kept_lines = []
+
+    # blocks are tuples: (x0, y0, x1, y1, text, block_no, block_type)
+    for b in blocks or []:
+        if not b or len(b) < 5:
+            continue
+        x0, y0, x1, y1, text = b[:5]
+        if not text or not isinstance(text, str):
+            continue
+
+        # filter margins
+        if y1 <= top_cut:          # header
+            continue
+        if y0 >= bottom_cut:       # footer
+            continue
+        if x0 <= left_cut or x1 >= right_cut:  # side margins
+            continue
+
+        kept_lines.append(text.strip())
+
+    # Join with single newlines to keep some structure
+    return "\n".join([t for t in kept_lines if t])
+
+def _extract_clean_text_from_page(page, use_ocr_if_needed=True) -> str:
+    """
+    Try embedded text → filter margins.
+    If short/empty and OCR available → OCR blocks → filter margins.
+    """
+    # 1) Embedded text blocks
+    try:
+        native_blocks = page.get_text("blocks")
+        txt_native = _blocks_to_text_without_margins(native_blocks, page.rect)
+    except Exception:
+        txt_native = ""
+
+    if is_page_valid(txt_native):
+        return txt_native
+
+    # 2) OCR fallback
+    if use_ocr_if_needed and _has_tesseract():
+        try:
+            tp = page.get_textpage_ocr()  # requires Tesseract installed
+            ocr_blocks = page.get_text("blocks", textpage=tp)
+            txt_ocr = _blocks_to_text_without_margins(ocr_blocks, page.rect)
+            if is_page_valid(txt_ocr):
+                return txt_ocr
+        except Exception as e:
+            logging.warning(f"OCR failed on page {page.number+1}: {e}")
+
+    # 3) Final fallback: plain embedded text (unfiltered), better than nothing
+    try:
+        txt_plain = page.get_text("text").strip()
+        return txt_plain
+    except Exception:
+        return ""
+
 def extract_text_pages(pdf_buf: io.BytesIO, sid: str):
-    """Return a list of clean text—one element per PDF page."""
+    """
+    Return list[str] – one cleaned (margin-filtered) text per PDF page.
+    Uses OCR fallback where needed.
+    """
     doc = fitz.open(stream=pdf_buf, filetype="pdf")
     pages, total = [], doc.page_count
 
     for idx, page in enumerate(doc, start=1):
+        # lightweight progress
         if total < 15 or idx % 5 == 1:
             pct = int(idx / total * 100)
             update_status_msg(sid, f"Extracting text… {pct}% ({idx}/{total})")
 
-        text_native = page.get_text("text")
-        if is_page_valid(text_native):
-            pages.append(text_native.strip())
-            logging.info(f"✓ page {idx} ({len(text_native)} chars)")
+        text = _extract_clean_text_from_page(page, use_ocr_if_needed=True)
+        if is_page_valid(text):
+            pages.append(text)
+            logging.info(f"✓ page {idx} ({len(text)} chars)")
         else:
-            logging.info(f"× page {idx} skipped (no embedded text)")
+            logging.info(f"× page {idx} skipped (no usable text)")
+
     doc.close()
-    logging.info(f"{len(pages)} content pages collected.")
+    logging.info(f"{len(pages)} content pages collected after margin filter / OCR.")
     return pages
 
-
+# ─────────────────── OpenAI with retries ────────────────────────────────
 def _chat_with_retries(client, messages, sid, label,
                        attempts=5, backoff=8) -> str:
     for n in range(1, attempts + 1):
         try:
             return client.invoke(messages).content.strip()
-        except (openai.OpenAIError, Exception) as exc:         # ← updated
+        except Exception as exc:
             wait = backoff * n
             logging.warning(
                 f"[{sid}] {label}: {exc} – retry {n}/{attempts} in {wait}s"
@@ -90,8 +170,7 @@ def _chat_with_retries(client, messages, sid, label,
             time.sleep(wait)
     return f"⚠️ {label} failed after {attempts} retries."
 
-
-# ─────────────────── Summaries ────────────────────────────────────────────
+# ─────────────────── Summaries ───────────────────────────────────────────
 def summarize_deposition(pages, sid: str, target_lang="en"):
     """
     Creates one summary record per page and never aborts the whole job.
@@ -111,7 +190,7 @@ def summarize_deposition(pages, sid: str, target_lang="en"):
             [
                 {"role": "system",
                  "content": ("You will be given part of a legal deposition. "
-                              "Provide a concise English summary (≤3 sentences).")},
+                             "Provide a concise English summary (≤3 sentences).")},
                 {"role": "user", "content": pg[:4000]},
             ],
             sid, f"EN page {i}"
@@ -139,8 +218,8 @@ def summarize_deposition(pages, sid: str, target_lang="en"):
         summaries.append(rec)
 
     return summaries
-#pdf builder
 
+# ─────────────────── PDF builder ─────────────────────────────────────────
 def write_summaries_to_pdf(summaries, out_buf: io.BytesIO, target_lang="en"):
     doc = SimpleDocTemplate(out_buf, pagesize=letter,
                             leftMargin=72, rightMargin=72,
@@ -170,7 +249,7 @@ def build_pdf_story(summaries, target_lang="en"):
         story.append(Spacer(1, 8))
     return story
 
-# ─────────────────── Orchestrator ─────────────────────────────────────────
+# ─────────────────── Orchestrator ───────────────────────────────────────
 def create_summary(pdf_bytes: bytes, sid: str, target_lang="en") -> int:
     """
     End-to-end controller.
