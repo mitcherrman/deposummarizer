@@ -20,8 +20,8 @@ import json
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
-# DEBUG = config("DEBUG_MODE", cast=bool)
+# DEBUG = True
+DEBUG = config("DEBUG_MODE", cast=bool)
 
 #use local db file for testing (with debug mode off), turn off in production
 TEST_WITH_LOCAL_DB = config("USE_LOCAL_DB", cast=bool)
