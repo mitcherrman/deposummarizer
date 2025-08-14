@@ -15,7 +15,7 @@ LOAD_DB_FROM_FOLDER = True
 DB_PIECE_SIZE = 1
 
 #load model
-model = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'))
+model = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'), temperature=1)
 embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPENAI_KEY'))
 
 #thread locks
@@ -64,7 +64,15 @@ def askQuestion(question, id, prompt_append, l):
     
     #set up prompt
     prompt = [
-        {"role":"system","content":f"You are an assistant for question-answering tasks. Use the following exerpts from a court deposition to answer the user's question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise. Include the exact quote(s) you got the answer from.\nExerpt: {context}"},
+        {"role":"system","content":f"""
+        You are an assistant for question-answering tasks.
+        You will be given excerpts from a court deposition, and you will try to answer the user's question using the information in the excerpts.
+        If you don't know the answer, just say that you don't know.
+        Use three sentences maximum and keep the answer concise.
+        Include the exact quote(s) you got the answer from.
+        Excerpt: {context}
+        """},
+        #{"role":"system","content":f"You are an assistant for question-answering tasks. Use the following exerpts from a court deposition to answer the user's question. If you don't know the answer, just say that you don't know. Use three sentences maximum and keep the answer concise. Include the exact quote(s) you got the answer from.\nExerpt: {context}"},
     ]
     prompt.extend(prompt_append)
     prompt.append(

@@ -29,6 +29,13 @@ def summarize(request):
 	if not request.session.session_key:
 		request.session.save()
 	id = request.session.session_key
+
+	#get request data
+	filter_type = request.POST.get("filterType")
+	if filter_type not in ["none", "include", "exclude"]:
+		return HttpResponseBadRequest(f"Malformed request, invalid value \"{filter_type}\" for filterType")
+	filter_text = None if filter_type == "none" else request.POST.get("filterText")
+
 	#check if summary already started
 	try:
 		if request.session['db_len'] == -1:
@@ -45,7 +52,7 @@ def summarize(request):
 
 	#start summarizing thread
 	def r(id):
-		l = create_summary(pdf_data, id)
+		l = create_summary(pdf_data, id, filter_text, filter_type == "exclude")
 		request.session['db_len'] = l
 		with session_lock:
 			s = session_engine.SessionStore(id)

@@ -9,3 +9,4 @@ gunicorn
 .DS_Store
 .certs
 .pg
+tmp.txt

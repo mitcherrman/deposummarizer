@@ -8,7 +8,6 @@
 {% endblock %}
 
 {% block content %}
-<script src="{% static 'javascript/home.js' %}"></script>
 <h1>Upload a PDF of your deposition to Deposum</h1>
 <form method="POST" id="form" enctype="multipart/form-data" action="{% url 'summarize' %}">
     {% csrf_token %}
@@ -16,6 +15,14 @@
         <label for="fileInput">Choose a file:</label>
         <input type="file" class="form-control" id="fileInput" name="file" required>
     </div>
+    <input type="radio" class="filter-type filter-disable" name="filterType" value="none" checked>No filter</input>
+    <br/>   
+    <input type="radio" class="filter-type" name="filterType" value="include">Only include:</input>
+    <br/>
+    <input type="radio" class="filter-type" name="filterType" value="exclude">Do not include:</input>
+    <br/>
+    <input type="text" class="filter-text" name="filterText" placeholder="Enter filters separated by commas, e.g. &quot;accident details&quot;, &quot;witness background&quot;" disabled>
+    <br/>
     <button class="btn btn-primary" id="btnClicked" onclick="if (validateForm()) document.getElementById('form').submit();">Summarize</button>
 </form>
 
@@ -26,4 +33,5 @@
 <p class="output-url" hidden>
     It appears that you have already summarized a document - <a href="{% url 'output' %}">you can find the summary here.</a>
 </p>
+<script src="{% static 'javascript/home.js' %}"></script>
 {% endblock %}

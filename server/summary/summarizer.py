@@ -23,19 +23,51 @@ session_engine = import_module(settings.SESSION_ENGINE)
 logging.basicConfig(level=logging.INFO)
 
 # Initialize Langchain OpenAI model
-llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'))  # Secure API key handling
+llm = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'), temperature=1)  # Secure API key handling
 
 # Define a prompt template for better input to the LLM
-prompt = ChatPromptTemplate.from_messages([
-    ("system", "You will be given a legal deposition. Provide a brief summary of each page, considering the context of the entire document."),
-    ("user", "{input}")
-])
+def getPrompt(filter_keywords=None, filter_exclude=False):
+    systemText = ""
+    if filter_keywords == None:
+        systemText = """You will be given a section from a legal deposition.
+            Provide a brief summary of each page, considering the context of the entire document.
+            Format the summary as a list of up to 3 concise bullet points using the round bullet point (utf code 2022).
+            Separate bullet points with <br/>.
+            """
+    else:
+        filters = [s.strip() for s in filter_keywords.split(',')]
+        if filter_exclude:
+            systemText = f"""You will be given a section from a legal deposition.
+                Provide a brief summary of each page, considering the context of the entire document.
+                Format the summary as a list of up to 3 concise bullet points using the round bullet point (utf code 2022).
+                Separate bullet points with <br/>.
+                Some details are unimportant. Do not include information related to the following list of keywords in brackets, separated by commas, in your summary:
+                [{', '.join(filters)}]
+                Include no information that pertains to these keywords. If a page only contains information related to these keywords, then say that no important information is on the page.
+                """
+        else:
+            systemText = f"""You will be given a section from a legal deposition.
+                Provide a brief summary of each page, considering the context of the entire document.
+                Format the summary as a list of up to 3 concise bullet points using the round bullet point (utf code 2022).
+                Separate bullet points with <br/>.
+                Only certain details are important. Only include information related to the following list of keywords in brackets, separated by commas, in your summary:
+                [{', '.join(filters)}]
+                Include no information that does not pertain to these keywords. If a page contains no information related to these keywords, then say that no important information is on the page.
+                """
+    print(systemText)
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", systemText),
+        ("user", "{input}")
+    ])
+    return prompt
 
 # Initialize output parser to convert chat message to string
 output_parser = StrOutputParser()
 
 # Combine prompt, LLM, and output parser into a chain
-chain = prompt | llm | output_parser
+def getChain(filter_keywords=None, filter_exclude=False):
+    chain = getPrompt(filter_keywords, filter_exclude) | llm | output_parser
+    return chain
 
 # Helper function to determine if a page is valid for processing based on content length or keywords
 KEYWORDS = ["Exhibit", "Affidavit", "Page", "Witness"]
@@ -174,28 +206,28 @@ def build_pdf_story(summaries):
         story.append(Paragraph(f"Page {i}", page_style))
         
         # Summary paragraph with enhanced formatting
-        story.append(Paragraph(summary, summary_style))
+        story.append(Paragraph(f"{summary}", summary_style))
         
         story.append(Spacer(1, 12))  # Add some space between summaries
     
     return story
 
 # Sends text to the language model and returns the summary.
-def summarize_deposition_text(text):
+def summarize_deposition_text(text, filter_keywords=None, filter_exclude=False):
     try:
-        response = chain.invoke({"input": text, "max_tokens": 52000})
+        response = getChain(filter_keywords, filter_exclude).invoke({"input": text, "max_tokens": 52000})
         return response.strip()
     except Exception as e:
         logging.error(f"Error summarizing text: {e}")
         return ""
 
 # Summarizes each page of the deposition and returns the summaries.
-def summarize_deposition(text_pages, id):
+def summarize_deposition(text_pages, id, filter_keywords=None, filter_exclude=False):
     summaries = []  # Use a list to store summaries in order
     for page_num, page in enumerate(text_pages, start=1):
         update_status_msg(id, f"Summarizing page {page_num} of {len(text_pages)}...")
         if len(page) > 150:
-            summary = summarize_deposition_text(page)
+            summary = summarize_deposition_text(page, filter_keywords, filter_exclude)
             summaries.append(summary)  # Store summaries in the list in order
         else:
             logging.info(f"[{id}]: Skipped page {page_num} with size {len(page)}")
@@ -227,13 +259,17 @@ def update_status_msg(id, msg):
 
 # Orchestrates the entire summary process: from removing marginal text, extracting text, splitting it into pages,
 # summarizing it, and writing the final summaries to a PDF.
-def create_summary(pdf_data, id):
+def create_summary(pdf_data, id, filter_keywords=None, filter_exclude=False):
     if not pdf_data:
         logging.error(f"[{id}]: No PDF data provided")
         return 0
 
     try:
         logging.info(f"Processing PDF data for session {id}")
+        if filter_keywords == None:
+            logging.info(f"No keyword filter used")
+        else:
+            logging.info(f"{'Exclude' if filter_exclude else 'Include'} filter for keywords: {filter_keywords}")
         update_status_msg(id, "Extracting text...")
 
         # Create BytesIO objects for processing
@@ -257,7 +293,7 @@ def create_summary(pdf_data, id):
         
         update_status_msg(id, "Starting summary...")
         if not settings.TEST_WITHOUT_AI:
-            summarized_pages = summarize_deposition(text_pages, id)
+            summarized_pages = summarize_deposition(text_pages, id, filter_keywords, filter_exclude)
             # Store summary in session as base64
             with session_lock:
                 s = session_engine.SessionStore(id)
