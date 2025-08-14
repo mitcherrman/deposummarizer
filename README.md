@@ -1,16 +1,16 @@
 # Deposummarizer
 
-A web app that summarizes legal depositions using AI.
+A web app that summarizes legal depositions using AI. 
 
 ## Environment Variables
 
-The following environment variables must be set in your `.env` file:
-
-### OpenAI Configuration
-- `OPENAI_KEY`: Your OpenAI API key for accessing GPT models and embeddings
-- `GPT_MODEL`: The name of the GPT model to use (e.g., "gpt-4", "gpt-3.5-turbo")
-
-### Database Configuration
+The following environment variables must be set:
+- `OPENAI_KEY`: Your OpenAI API key for accessing GPT models
+- `GPT_MODEL`: The name of the GPT model to use (e.g. "gpt-4")
+- `DEBUG_MODE`: Boolean, `True` enables more verbose logging
+- `USE_LOCAL_DB`: Boolean, `True` if it runs in a local PostgreSQL instance
+- `CODE_PATH`: Absolute path to the project directory
+- `STATIC_ROOT`: Location of static files in production
 - `DB_NAME`: Name of the PostgreSQL database
 - `DB_HOST`: Hostname of the PostgreSQL database server
 - `DB_PORT`: Port number for the PostgreSQL database (default: 5432)
@@ -34,6 +34,7 @@ The following environment variables must be set in your `.env` file:
    1. Tesseract-ocr ([https://tesseract-ocr.github.io/tessdoc/Installation.html])
    2. Postgres server for local testing ([https://www.postgresql.org/download/])
 4. Create a `.env` file in the project root and set up the environment variables listed above
+   1. On Windows systems, the `PATH` environment variable may need to be updated to allow Tesseract and Postgres to run
 5. To run the development server: `python manage.py runserver`
 
 ## Usage
@@ -47,10 +48,13 @@ The following environment variables must be set in your `.env` file:
 The app uses:
 - Django for the web framework
 - OpenAI's GPT models for text generation
+- Tesseract for running OCR
 - PGVector for vector storage and similarity search
 - PyMuPDF for PDF processing
 - Langchain for AI model interaction
 - AWS to host infrastructure
+
+When a PDF is uploaded, the app will extract the relevant text from each page of the PDF, after first running OCR if no text is detected. Then, a summary is generated from the text on each page. The chatbot answers questions given some context. For context it receives: the question, all previous chat history from the current session, and a vector database of the sections "closest in meaning" to the question.
 
 ## License
 
