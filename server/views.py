@@ -58,10 +58,9 @@ def summarize(request):
 	#start summarizing thread
 	def r(id):
 		l = create_summary(pdf_data, id, filter_text, filter_type == "exclude")
-		request.session['db_len'] = l
 		with session_lock:
 			s = session_engine.SessionStore(id)
-			if s.exists(id):
+			if s.exists(id) and s.get('db_len') and s['db_len'] == -1:
 				#update number of documents successfully summarized
 				s['db_len'] = l
 				if s.get('num_docs'):
@@ -217,7 +216,7 @@ def out_docx(request):
 def verify(request):
 	if request.method != 'GET':
 		return HttpResponseNotAllowed(['GET'])
-	if request.session and request.session['db_len'] == -1:
+	if request.session and request.session.get('db_len') and request.session['db_len'] == -1:
 		return HttpResponse(request.session.get('status_msg', "Working...")) #body used by frontend for status message
 	return HttpResponse("Summary not in progress.", status=418) #no error code for "task failed successfully"
 

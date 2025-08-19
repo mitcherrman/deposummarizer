@@ -230,6 +230,8 @@ def summarize_deposition(text_pages, id, filter_keywords=None, filter_exclude=Fa
             summaries.append(summary)  # Store summaries in the list in order
         else:
             logging.info(f"[{id}]: Skipped page {page_num} with size {len(page)}")
+        if race_check(id):
+            return []
     return summaries
 
 # Split extracted text into pages, assuming each page starts with "Page" followed by a number.
@@ -256,6 +258,11 @@ def update_status_msg(id, msg):
             session['status_msg'] = msg
             session.save()
 
+def race_check(id):
+    with session_lock:
+        session = session_engine.SessionStore(id)
+        return not session.exists(id) or not session.get('db_len') or session['db_len'] != -1
+
 # Orchestrates the entire summary process: from removing marginal text, extracting text, splitting it into pages,
 # summarizing it, and writing the final summaries to a PDF.
 def create_summary(pdf_data, id, filter_keywords=None, filter_exclude=False):
@@ -270,6 +277,8 @@ def create_summary(pdf_data, id, filter_keywords=None, filter_exclude=False):
         else:
             logging.info(f"{'Exclude' if filter_exclude else 'Include'} filter for keywords: {filter_keywords}")
         update_status_msg(id, "Extracting text...")
+        if race_check(id):
+            return -1
 
         # Create BytesIO objects for processing
         pdf_buffer = io.BytesIO(pdf_data)
@@ -280,8 +289,12 @@ def create_summary(pdf_data, id, filter_keywords=None, filter_exclude=False):
         cleaned_buffer.seek(0)
 
         raw_text = extract_text_with_numbers(cleaned_buffer)
+        if race_check(id):
+            return -1
 
         text_pages = split_text_by_page(raw_text)
+        if race_check(id):
+            return -1
 
         #first page is residual fiiller, second a cover, no use
         text_pages = text_pages[2:]
@@ -289,21 +302,29 @@ def create_summary(pdf_data, id, filter_keywords=None, filter_exclude=False):
         # Initialize chatbot for processing
         update_status_msg(id, "Configuring chatbot...")
         l = cb.initBot(raw_text, id)
+        if race_check(id):
+            return -1
         
         update_status_msg(id, "Starting summary...")
         if not settings.TEST_WITHOUT_AI:
             summarized_pages = summarize_deposition(text_pages, id, filter_keywords, filter_exclude)
+            if race_check(id):
+                return -1
             # Store summary in session as base64
             with session_lock:
                 s = session_engine.SessionStore(id)
                 if s.exists(id):
                     summary_buffer = io.BytesIO()
                     write_summaries_to_pdf(summarized_pages, summary_buffer)
+                    if race_check(id):
+                        return -1
                     s['summary_pdf'] = base64.b64encode(summary_buffer.getvalue()).decode('utf-8')
                     s.save()
         else:
             summary_buffer = io.BytesIO()
             write_summaries_to_pdf(text_pages[0:5], summary_buffer)
+            if race_check(id):
+                return -1
             with session_lock:
                 s = session_engine.SessionStore(id)
                 if s.exists(id):
