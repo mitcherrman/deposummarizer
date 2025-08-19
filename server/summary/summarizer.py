@@ -54,7 +54,6 @@ def getPrompt(filter_keywords=None, filter_exclude=False):
                 [{', '.join(filters)}]
                 Include no information that does not pertain to these keywords. If a page contains no information related to these keywords, then say that no important information is on the page.
                 """
-    print(systemText)
     prompt = ChatPromptTemplate.from_messages([
         ("system", systemText),
         ("user", "{input}")
