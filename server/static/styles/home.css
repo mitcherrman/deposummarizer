@@ -9,3 +9,15 @@
   margin-bottom: 0.4em;
   height: unset;
 }
+
+.filter-type {
+  margin: 0.3em;
+}
+
+.filter-text {
+  margin: 0.1em;
+}
+
+.btn-primary {
+  margin-top: 0.3em;
+}

@@ -14,7 +14,7 @@ from django.shortcuts import render, redirect
 from pdf2docx import Converter
 from server.util import session_lock
 from . import util
-import io, base64
+import io, base64, re
 
 session_engine = import_module(settings.SESSION_ENGINE)
 
@@ -29,6 +29,18 @@ def summarize(request):
 	if not request.session.session_key:
 		request.session.save()
 	id = request.session.session_key
+
+	#get request data
+	filter_type = request.POST.get("filterType")
+	if filter_type not in ["none", "include", "exclude"]:
+		return HttpResponseBadRequest(f"Malformed request, invalid value \"{filter_type}\" for filterType")
+	
+	filter_text = None
+	if filter_type != "none":
+		filter_text = request.POST.get("filterText")
+		# Sanitize input by removing characters that aren't a-z, A-Z, 0-9, comma, or hyphen
+		filter_text = re.sub(r'[^a-zA-Z0-9,-]', '', filter_text)
+
 	#check if summary already started
 	try:
 		if request.session['db_len'] == -1:
@@ -45,7 +57,7 @@ def summarize(request):
 
 	#start summarizing thread
 	def r(id):
-		l = create_summary(pdf_data, id)
+		l = create_summary(pdf_data, id, filter_text, filter_type == "exclude")
 		request.session['db_len'] = l
 		with session_lock:
 			s = session_engine.SessionStore(id)

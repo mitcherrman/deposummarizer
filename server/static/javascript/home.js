@@ -26,3 +26,18 @@ function checkForSummary() {
 }
 
 addEventListener("load", checkForSummary());
+
+//filter box enable/disable
+document.querySelectorAll(".filter-type").forEach(filter => {
+  console.log("add");
+  filter.addEventListener("change", () => {
+    console.log("change");
+    if (filter.classList.contains("filter-disable")) {
+      document.querySelector(".filter-text").setAttribute("disabled", "disabled");
+      document.querySelector(".filter-text").value = "";
+    } else {
+      document.querySelector(".filter-text").removeAttribute("disabled");
+      document.querySelector(".filter-text").value = "";
+    }
+  });
+});
