@@ -265,6 +265,7 @@ def race_check(id):
 
 # Orchestrates the entire summary process: from removing marginal text, extracting text, splitting it into pages,
 # summarizing it, and writing the final summaries to a PDF.
+# Returns 0 if there is no document, -1 if the session is deleted/improperly modified (e.g. second summary) partway through execution, -2 if an error occurs, or the number of pages summarized if successful.
 def create_summary(pdf_data, id, filter_keywords=None, filter_exclude=False):
     if not pdf_data:
         logging.error(f"[{id}]: No PDF data provided")
@@ -316,7 +317,7 @@ def create_summary(pdf_data, id, filter_keywords=None, filter_exclude=False):
                 if s.exists(id):
                     summary_buffer = io.BytesIO()
                     write_summaries_to_pdf(summarized_pages, summary_buffer)
-                    if race_check(id):
+                    if not s.exists(id) or not s.get('db_len') or s['db_len'] != -1: #cannot use race_check here because session_lock is taken
                         return -1
                     s['summary_pdf'] = base64.b64encode(summary_buffer.getvalue()).decode('utf-8')
                     s.save()

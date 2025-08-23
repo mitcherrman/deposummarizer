@@ -80,21 +80,11 @@ WSGI_APPLICATION = 'server.wsgi.application'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
-    #values for local testing, change depending on local environment
-    'default': {
-        'ENGINE': 'server.rotating_key_db_engine',
-        'NAME': "postgres",
-        'USER': "postgres",
-        'PASSWORD': "postgres",
-        'HOST': "localhost",
-        'PORT': "5432"
-    }
-} if DEBUG or TEST_WITH_LOCAL_DB else {
     'default': {
         'ENGINE': 'server.rotating_key_db_engine',
         'NAME': config("DB_NAME"),
-        'USER': "default",
-        'PASSWORD': "default",
+        'USER': config("DB_USER"),
+        'PASSWORD': config("DB_PASSWORD"),
         'HOST': config("DB_HOST"),
         'PORT': config("DB_PORT")
     }

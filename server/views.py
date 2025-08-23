@@ -54,13 +54,12 @@ def summarize(request):
 	pdf_data = file.read()
 	request.session['depo_pdf'] = base64.b64encode(pdf_data).decode('utf-8')
 	request.session.save()
-
 	#start summarizing thread
 	def r(id):
 		l = create_summary(pdf_data, id, filter_text, filter_type == "exclude")
 		with session_lock:
 			s = session_engine.SessionStore(id)
-			if s.exists(id) and s.get('db_len') and s['db_len'] == -1:
+			if l != -1 and s.exists(id) and s.get('db_len') and s['db_len'] == -1:
 				#update number of documents successfully summarized
 				s['db_len'] = l
 				if s.get('num_docs'):
