@@ -16,12 +16,13 @@ from reportlab.lib.styles  import getSampleStyleSheet, ParagraphStyle
 from reportlab.platypus    import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib         import colors
 
-from langchain_openai import ChatOpenAI
+from langchain_openai import ChatOpenAI 
 from decouple import config
 from django.conf import settings
 from importlib import import_module
 from server.util import session_lock
 import server.summary.deposition_chatbot as cb
+
 
 # ─────────────────── Session helpers ───────────────────
 session_engine = import_module(settings.SESSION_ENGINE)
@@ -154,6 +155,7 @@ def extract_text_pages(pdf_buf: io.BytesIO, sid: str):
     doc.close()
     logging.info(f"{len(pages)} content pages collected after margin filter / OCR.")
     return pages
+
 
 # ─────────────────── OpenAI with retries ────────────────────────────────
 def _chat_with_retries(client, messages, sid, label,

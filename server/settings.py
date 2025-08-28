@@ -20,8 +20,8 @@ import json
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = True
-DEBUG = config("DEBUG_MODE", cast=bool)
+DEBUG = True
+# DEBUG = config("DEBUG_MODE", cast=bool)
 
 #use local db file for testing (with debug mode off), turn off in production
 TEST_WITH_LOCAL_DB = config("USE_LOCAL_DB", cast=bool)
@@ -43,7 +43,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'server'
+    'django.contrib.sites',
+    'server',
+    "djstripe",
 ]
 
 MIDDLEWARE = [
@@ -164,3 +166,34 @@ SECURE_HSTS_SECONDS = 60 * 60 * 24 * 14
 SECURE_HSTS_PRELOAD = True
 SECURE_HSTS_INCLUDE_SUBDOMAINS = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+# App URLs you’ll render in templates
+BILLING_SUCCESS_URL = "billing_success"
+BILLING_CANCEL_URL  = "billing_cancel"
+ACCOUNT_URL_NAME    = "home"  # where to send users back after portal
+
+# STRIPE
+
+
+# Toggle this with your environment; False in dev (Test mode), True in prod
+STRIPE_LIVE_MODE = False
+
+# Stripe API keys
+STRIPE_TEST_SECRET_KEY = config("STRIPE_SECRET_KEY", default="")
+STRIPE_LIVE_SECRET_KEY = config("STRIPE_LIVE_SECRET_KEY", default="")
+STRIPE_SECRET_KEY = STRIPE_LIVE_SECRET_KEY if STRIPE_LIVE_MODE else STRIPE_TEST_SECRET_KEY
+
+STRIPE_TEST_PUBLISHABLE_KEY = config("STRIPE_PUBLISHABLE_KEY", default="")
+STRIPE_LIVE_PUBLISHABLE_KEY = config("STRIPE_LIVE_PUBLISHABLE_KEY", default="")
+STRIPE_PUBLISHABLE_KEY = STRIPE_LIVE_PUBLISHABLE_KEY if STRIPE_LIVE_MODE else STRIPE_TEST_PUBLISHABLE_KEY
+
+# dj-stripe settings
+DJSTRIPE_WEBHOOK_SECRET = config("STRIPE_WEBHOOK_SECRET", default="")
+DJSTRIPE_USE_NATIVE_JSONFIELD = True
+DJSTRIPE_SUBSCRIBER_MODEL = "auth.User"  # map Stripe Customer -> Django User
+
+# dj-stripe config
+DJSTRIPE_FOREIGN_KEY_TO_FIELD = "id"   # <— required for new installs
+DJSTRIPE_USE_NATIVE_JSONFIELD = True
+DJSTRIPE_SUBSCRIBER_MODEL = "auth.User"
+DJSTRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")

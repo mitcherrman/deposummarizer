@@ -14,3 +14,6 @@ pdf2docx
 psycopg
 psycopg-binary
 boto3
+
+#stripe and billing
+dj-stripe

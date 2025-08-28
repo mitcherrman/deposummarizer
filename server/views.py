@@ -22,12 +22,19 @@ from server.summary.deposition_chatbot import askQuestion
 from server.util import session_lock
 from . import util
 
+#billing
+from django.contrib.auth.decorators import login_required
+from .billing_guard import require_active_subscription
+
+
 # --- session engine ------------------------------------------------------
 session_engine = import_module(settings.SESSION_ENGINE)
 
 # ---------------------------------------------------------------------------
 #  Summarize view  –  handles file upload, language choice, and starts worker
 # ---------------------------------------------------------------------------
+@login_required
+@require_active_subscription
 def summarize(request):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])

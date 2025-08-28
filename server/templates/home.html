@@ -65,6 +65,19 @@
   </form>
 </div>
 
+<!--Billing-->
+
+<form action="{% url 'billing_checkout' %}" method="post" style="display:inline;">
+  {% csrf_token %}
+  <button class="btn btn-primary">Upgrade</button>
+</form>
+
+{% if user.is_authenticated and user.subscription %}
+<form action="{% url 'billing_portal' %}" method="post" style="display:inline;margin-left:8px;">
+  {% csrf_token %}
+  <button class="btn btn-secondary">Manage Billing</button>
+</form>
+{% endif %}
 
 
 <!-- loading spinner -->
