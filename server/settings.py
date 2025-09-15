@@ -20,7 +20,6 @@ import json
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: don't run with debug turned on in production!
-# DEBUG = True
 DEBUG = config("DEBUG_MODE", cast=bool)
 
 #use local db file for testing (with debug mode off), turn off in production
@@ -81,21 +80,11 @@ WSGI_APPLICATION = 'server.wsgi.application'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
 DATABASES = {
-    #values for local testing, change depending on local environment
-    'default': {
-        'ENGINE': 'server.rotating_key_db_engine',
-        'NAME': "postgres",
-        'USER': "postgres",
-        'PASSWORD': "Cosgnanas,1",
-        'HOST': "localhost",
-        'PORT': "5432"
-    }
-} if DEBUG or TEST_WITH_LOCAL_DB else {
     'default': {
         'ENGINE': 'server.rotating_key_db_engine',
         'NAME': config("DB_NAME"),
-        'USER': "default",
-        'PASSWORD': "default",
+        'USER': config("DB_USER"),
+        'PASSWORD': config("DB_PASSWORD"),
         'HOST': config("DB_HOST"),
         'PORT': config("DB_PORT")
     }
@@ -147,11 +136,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 TEST_WITHOUT_AI = False #if set to true, does not recreate database and generates dummy summary to save on API calls, set to false in production
 
-# ─── sessions ────────────────────────────────────────────────────────────
-SESSION_ENGINE = "django.contrib.sessions.backends.db"
+SESSION_ENGINE = 'server.vector_db_session'
 
-SESSION_COOKIE_AGE = 60 * 60 * 24 * 7   # keep session 1 week (optional)
-
+SESSION_COOKIE_AGE = 60 * 60 * 12 #12 hours
 
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 

@@ -17,6 +17,8 @@ from reportlab.platypus    import SimpleDocTemplate, Paragraph, Spacer
 from reportlab.lib         import colors
 
 from langchain_openai import ChatOpenAI
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
 from decouple import config
 from django.conf import settings
 from importlib import import_module
@@ -33,13 +35,49 @@ def update_status_msg(sid: str, msg: str):
             s["status_msg"] = msg
             s.save()
 
-# ─────────────────── OpenAI (LangChain) ─────────────────
+# Initialize Langchain OpenAI model
 OPENAI_KEY = config("OPENAI_KEY").strip()
 GPT_MODEL  = config("GPT_MODEL", default="gpt-4o-mini").strip()
 
-llm = ChatOpenAI(openai_api_key=OPENAI_KEY, model_name=GPT_MODEL)
+llm = ChatOpenAI(openai_api_key=OPENAI_KEY, model_name=GPT_MODEL, temperature=1)
 translator_llm = ChatOpenAI(openai_api_key=OPENAI_KEY,
                             model_name="gpt-3.5-turbo-0125")
+output_parser = StrOutputParser()
+
+# Define a prompt template for better input to the LLM
+def getPrompt(filter_keywords=None, filter_exclude=False):
+    systemText = ""
+    if filter_keywords == None:
+        systemText = """You will be given a section from a legal deposition.
+            Provide a brief summary of each page, considering the context of the entire document.
+            Format the summary as a list of up to 3 concise bullet points using the round bullet point (utf code 2022).
+            Separate bullet points with <br/>.
+            """
+    else:
+        filters = [s.strip() for s in filter_keywords.split(',')]
+        if filter_exclude:
+            systemText = f"""You will be given a section from a legal deposition.
+                Provide a brief summary of each page, considering the context of the entire document.
+                Format the summary as a list of up to 3 concise bullet points using the round bullet point (utf code 2022).
+                Separate bullet points with <br/>.
+                Some details are unimportant. Do not include information related to the following list of keywords in brackets, separated by commas, in your summary:
+                [{', '.join(filters)}]
+                Include no information that pertains to these keywords. If a page only contains information related to these keywords, then say that no important information is on the page.
+                """
+        else:
+            systemText = f"""You will be given a section from a legal deposition.
+                Provide a brief summary of each page, considering the context of the entire document.
+                Format the summary as a list of up to 3 concise bullet points using the round bullet point (utf code 2022).
+                Separate bullet points with <br/>.
+                Only certain details are important. Only include information related to the following list of keywords in brackets, separated by commas, in your summary:
+                [{', '.join(filters)}]
+                Include no information that does not pertain to these keywords. If a page contains no information related to these keywords, then say that no important information is on the page.
+                """
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", systemText),
+        ("user", "{input}")
+    ])
+    return prompt
 
 def translate_to_spanish(text: str) -> str:
     sys = ("You are a professional translator. Translate the following text "
@@ -49,9 +87,14 @@ def translate_to_spanish(text: str) -> str:
               {"role": "user",   "content": text}]
     return translator_llm.invoke(prompt).content.strip()
 
-# ─────────────────── Page filters / OCR ─────────────────
+# Combine prompt, LLM, and output parser into a chain
+def getChain(filter_keywords=None, filter_exclude=False):
+    chain = getPrompt(filter_keywords, filter_exclude) | llm | output_parser
+    return chain
+
 KEYWORDS = ["Exhibit", "Affidavit", "Page", "Witness"]
 
+# Helper function to determine if a page is valid for processing based on content length or keywords
 def is_page_valid(txt: str, min_len: int = 150) -> bool:
     """Heuristic: accept if long enough or contains legal-ish keywords."""
     return len(txt) >= min_len or any(k.lower() in txt.lower() for k in KEYWORDS)
@@ -171,7 +214,7 @@ def _chat_with_retries(client, messages, sid, label,
     return f"⚠️ {label} failed after {attempts} retries."
 
 # ─────────────────── Summaries ───────────────────────────────────────────
-def summarize_deposition(pages, sid: str, target_lang="en"):
+def summarize_deposition(pages, sid: str, target_lang="en", filter_keywords=None, filter_exclude=False):
     """
     Creates one summary record per page and never aborts the whole job.
     Each record is {"en": "...", "es": "..."} depending on target_lang.
@@ -187,12 +230,7 @@ def summarize_deposition(pages, sid: str, target_lang="en"):
         # English summary
         en = _chat_with_retries(
             llm,
-            [
-                {"role": "system",
-                 "content": ("You will be given part of a legal deposition. "
-                             "Provide a concise English summary (≤3 sentences).")},
-                {"role": "user", "content": pg[:4000]},
-            ],
+            getPrompt(filter_keywords, filter_exclude).invoke({"input": pg[:4000]}),
             sid, f"EN page {i}"
         )
 
@@ -250,7 +288,7 @@ def build_pdf_story(summaries, target_lang="en"):
     return story
 
 # ─────────────────── Orchestrator ───────────────────────────────────────
-def create_summary(pdf_bytes: bytes, sid: str, target_lang="en") -> int:
+def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords=None, filter_exclude=False) -> int:
     """
     End-to-end controller.
 
@@ -277,7 +315,7 @@ def create_summary(pdf_bytes: bytes, sid: str, target_lang="en") -> int:
             logging.warning(f"[{sid}] chatbot DB skipped: {e}")
 
         # build summaries
-        summaries = summarize_deposition(pages, sid, target_lang)
+        summaries = summarize_deposition(pages, sid, target_lang, filter_keywords, filter_exclude)
 
         # build PDF
         update_status_msg(sid, "Building PDF summary…")

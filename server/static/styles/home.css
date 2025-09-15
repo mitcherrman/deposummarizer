@@ -11,3 +11,16 @@ button.btn-primary{
   font-weight:600;color:#001;
 }
 button.btn-primary:hover{background:var(--cal-gold-dark)}
+
+
+.filter-type {
+  margin: 0.3em;
+}
+
+.filter-text {
+  margin: 0.1em;
+}
+
+.btn-primary {
+  margin-top: 0.3em;
+}

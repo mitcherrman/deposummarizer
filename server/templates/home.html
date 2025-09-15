@@ -42,22 +42,18 @@
             <label class="form-check-label" for="langBoth">Both</label>
         </div>
     </div>
-
+    <input type="radio" class="filter-type filter-disable" name="filterType" value="none" checked>No filter</input>
+    <br/>   
+    <input type="radio" class="filter-type" name="filterType" value="include">Only include:</input>
+    <br/>
+    <input type="radio" class="filter-type" name="filterType" value="exclude">Do not include:</input>
+    <br/>
+    <input type="text" class="filter-text" name="filterText" placeholder="Enter filters separated by commas, e.g. &quot;accident details&quot;, &quot;witness background&quot;" disabled>
+    <br/>
+    <button class="btn btn-primary" id="btnClicked" onclick="if (validateForm()) document.getElementById('form').submit();">Summarize</button>
 </form>
 
-<!-- Buttons row: Summarize + Clear -->
 <div class="d-flex align-items-center gap-2 mt-2">
-  <!-- Submit the upload form by reference -->
-  <button
-    type="submit"
-    class="btn btn-primary"
-    id="btnClicked"
-    form="form"
-    onclick="if (validateForm()) document.getElementById('form').submit();"
-  >
-    Summarize
-  </button>
-
   <!-- Clear data form -->
   <form method="POST" action="{% url 'clear' %}" class="m-0">
     {% csrf_token %}
@@ -78,4 +74,5 @@
     It appears that you have already summarized a document —
     <a href="{% url 'output' %}">you can find the summary here.</a>
 </p>
+<script src="{% static 'javascript/home.js' %}"></script>
 {% endblock %}
