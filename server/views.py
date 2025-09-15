@@ -105,9 +105,11 @@ def summarize(request):
         with session_lock:
             s = session_engine.SessionStore(sess_id)
             if s.exists(sess_id):
-                s["db_len"] = page_cnt
-                s["num_docs"] = s.get("num_docs", 0) + 1
-                s.save()
+                #check if already complete by another thread
+                if (s.get("db_len", 0) == -1 and page_cnt != -1):
+                    s["db_len"] = page_cnt
+                    s["num_docs"] = s.get("num_docs", 0) + 1
+                    s.save()
 
     Thread(target=worker, args=[sid, lang_choice, pdf_bytes, filter_text, filter_type == "exclude"]).start()
     return redirect(output)
@@ -208,7 +210,7 @@ def verify(request):
         return HttpResponse("No active task", status=409)
 
     s = session_engine.SessionStore(sid)
-    db_len     = s.get('db_len', -1)
+    db_len     = s.get('db_len', 0)
     status_msg = s.get('status_msg', "Working...")
 
     if db_len == -1:

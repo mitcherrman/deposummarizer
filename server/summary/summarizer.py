@@ -233,6 +233,8 @@ def summarize_deposition(pages, sid: str, target_lang="en", filter_keywords=None
             getPrompt(filter_keywords, filter_exclude).invoke({"input": pg[:4000]}),
             sid, f"EN page {i}"
         )
+        if race_check(sid):
+            return []
 
         # Spanish (if requested)
         es = ""
@@ -247,6 +249,8 @@ def summarize_deposition(pages, sid: str, target_lang="en", filter_keywords=None
                 ],
                 sid, f"ES page {i}"
             )
+            if race_check(sid):
+                return []
 
         rec = {}
         if target_lang in ("en", "both"):
@@ -287,6 +291,14 @@ def build_pdf_story(summaries, target_lang="en"):
         story.append(Spacer(1, 8))
     return story
 
+# Check for race condition using session data, returns true if session has been modified outside of thread
+def race_check(sid: str) -> bool:
+    s = session_engine.SessionStore(sid)
+    try:
+        return s.get("db_len", 0) != -1 #atomic operation, no need for lock
+    except Exception:
+        return True
+
 # ─────────────────── Orchestrator ───────────────────────────────────────
 def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords=None, filter_exclude=False) -> int:
     """
@@ -306,6 +318,8 @@ def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords
         pages      = raw_pages[2:]                    # skip cover if desired
         raw_text   = "\n\n".join(raw_pages)
         db_len_value = len(pages)
+        if race_check(sid):
+            return -1
 
         # optional chatbot DB
         try:
@@ -313,9 +327,13 @@ def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords
             cb.initBot(raw_text, sid)
         except Exception as e:
             logging.warning(f"[{sid}] chatbot DB skipped: {e}")
+        if race_check(sid):
+            return -1
 
         # build summaries
         summaries = summarize_deposition(pages, sid, target_lang, filter_keywords, filter_exclude)
+        if race_check(sid):
+            return -1
 
         # build PDF
         update_status_msg(sid, "Building PDF summary…")
@@ -329,6 +347,8 @@ def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords
 
     # ── ALWAYS write results / finish flag ────────────────────────────────
     finally:
+        if race_check(sid):
+            return -1
         with session_lock:
             s = session_engine.SessionStore(sid)
             # write the PDF only if the run succeeded
