@@ -307,6 +307,8 @@ def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords
     • Always sets session['db_len'] so /out/verify stops polling  
     • Stores summary_pdf unconditionally (even if the Session row was
       missing when the worker thread opened it)
+    • Will abort early if another summary finishes first to save compute
+      (returns -1 in this case)
     """
     db_len_value = 0                                  # pessimistic default
 

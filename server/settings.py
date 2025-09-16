@@ -83,8 +83,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'server.rotating_key_db_engine',
         'NAME': config("DB_NAME"),
-        'USER': config("DB_USER"),
-        'PASSWORD': config("DB_PASSWORD"),
+        'USER': config("DB_USER") if not TEST_WITH_LOCAL_DB else "postgres",
+        'PASSWORD': config("DB_PASSWORD") if not TEST_WITH_LOCAL_DB else "postgres",
         'HOST': config("DB_HOST"),
         'PORT': config("DB_PORT")
     }
