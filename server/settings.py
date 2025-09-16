@@ -82,11 +82,11 @@ WSGI_APPLICATION = 'server.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'server.rotating_key_db_engine',
-        'NAME': config("DB_NAME"),
-        'USER': config("DB_USER") if not TEST_WITH_LOCAL_DB else "postgres",
-        'PASSWORD': config("DB_PASSWORD") if not TEST_WITH_LOCAL_DB else "postgres",
-        'HOST': config("DB_HOST"),
-        'PORT': config("DB_PORT")
+        'NAME': config("DB_NAME", default="postgres"),
+        'USER': config("DB_USER", default="postgres"),
+        'PASSWORD': config("DB_PASSWORD", default="postgres"),
+        'HOST': config("DB_HOST", default="localhost"),
+        'PORT': config("DB_PORT", default="5432")
     }
 }
 
