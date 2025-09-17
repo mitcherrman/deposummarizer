@@ -17,15 +17,15 @@
 <form id="form" method="POST" enctype="multipart/form-data" action="{% url 'summarize' %}">
     {% csrf_token %}
 
-    <!-- ───── PDF chooser ───── -->
+    {# ───── PDF chooser ───── #}
     <div class="mb-3">
         <label for="fileInput" class="form-label">Choose a PDF:</label>
         <input type="file" class="form-control" id="fileInput" name="file" accept="application/pdf" required>
     </div>
 
-    <!-- ───── NEW: language selector ───── -->
-    <div class="mb-3">
-        <label class="form-label d-block">Summary language:</label>
+    {# ───── NEW: language selector ───── #}
+    <div class="mb-3" id="lang">
+        <div class="form-label d-block">Summary language:</div>
 
         <div class="form-check form-check-inline">
             <input class="form-check-input" type="radio" name="lang" id="langEn"  value="en"  checked>
@@ -50,26 +50,26 @@
     <br/>
     <input type="text" class="filter-text" name="filterText" placeholder="Enter filters separated by commas, e.g. &quot;accident details&quot;, &quot;witness background&quot;" disabled>
     <br/>
-    <button class="btn btn-primary" id="btnClicked" onclick="if (validateForm()) document.getElementById('form').submit();">Summarize</button>
 </form>
 
 <div class="d-flex align-items-center gap-2 mt-2">
-  <!-- Clear data form -->
-  <form method="POST" action="{% url 'clear' %}" class="m-0">
+  <button form="form" class="btn btn-primary" id="btnClicked" onclick="if (validateForm()) document.getElementById('form').submit();">Summarize</button>
+  {# Clear data form #}
+  <form id="clearForm" method="POST" action="{% url 'clear' %}" class="m-0">
     {% csrf_token %}
-    <button class="btn btn-warning">Clear data</button>
+    <button type="button" class="btn btn-warning clear-button" onclick="clearConfirm()">Clear data</button>
   </form>
 </div>
 
 
 
-<!-- loading spinner -->
+{# loading spinner #}
 <div id="loading" style="display:none; margin-top: 10px;">
     Processing…
     <img src="{% static '/images/gavel-judge.gif' %}" alt="Loading…" style="width:50px;height:50px;">
 </div>
 
-<!-- already-have-summary hint -->
+{# already-have-summary hint #}
 <p class="output-url" hidden>
     It appears that you have already summarized a document —
     <a href="{% url 'output' %}">you can find the summary here.</a>

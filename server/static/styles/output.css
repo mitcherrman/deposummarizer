@@ -2,12 +2,10 @@
 
 /*  SUMMARY PANEL  */
 .summary-container{flex:3}
-.clear-button{
-  float:right;margin-right:10px;
-  background:#e54;border:0;border-radius:4px;
-  color:#fff;font-weight:600;padding:4px 10px
+
+.summary-download-container{
+  margin-top:0.3em;
 }
-.clear-button:hover{background:#c43}
 
 /*  CHAT SIDEBAR  */
 .chat-container{
@@ -49,3 +47,7 @@
   flex:1;border:1px solid var(--cal-gray);border-radius:6px;padding-left:6px
 }
 .chat-question-box:focus{outline:2px solid var(--cal-gold)}
+
+.clear-form{
+  float:right;
+}

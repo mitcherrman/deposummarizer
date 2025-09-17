@@ -8,10 +8,9 @@
         Django App
       {% endblock %}
     </title>
-    {% load static %} <!-- Load static files -->
-    <link rel="stylesheet"
-          href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
-          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
+    {% load static %} {# Load static files #}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
     <link rel="stylesheet" href="{% static '/styles/base.css' %}"/>
     <link rel="icon" href="{% static '/images/favicon.ico' %}"/>
     {% block links %}
@@ -20,7 +19,7 @@
   <body hidden>
     <script src="{% static 'javascript/base.js' %}"></script>
     <nav class="navbar navbar-expand-lg navbar-light sticky-top">
-      <!-- Add the logo and brand name -->
+      {# Add the logo and brand name #}
       <a class="navbar-brand" href="/">
         <img src="{% static 'images/bearinc.webp' %}" alt="Logo" style="width: 35px; height: 35px; margin-right: 10px;">
         Deposum
@@ -53,10 +52,10 @@
       </div>
     </nav>
 
-    <!-- Page Content -->
+    {# Page Content #}
     <div class="container">
       {% if msg %}
-      <!-- Error Message -->
+      {# Error Message #}
       <div class="msg-container">
           <c class="msg-text">{{ msg }}</c>
           <button class="msg-close-button" onclick="removeMessage()">
@@ -73,7 +72,7 @@
       {% block content %} {% endblock %}
     </div>
 
-    <!-- "Go to Top" Button -->
+    {# "Go to Top" Button #}
     <button onclick="topFunction()" id="goToTopBtn" title="Go to Top" hidden>↑</button>
 
     <script src="https://code.jquery.com/jquery-3.7.1.slim.min.js"

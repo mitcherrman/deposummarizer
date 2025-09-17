@@ -25,6 +25,13 @@ function logoutConfirm() {
     }
 }
 
+//confirm clearing data
+function clearConfirm() {
+    if (confirm("This will clear all of the data you entered, including documents and chat logs. Are you sure you want to do this?")) {
+        document.getElementById("clearForm").submit();
+    }
+}
+
 //"scroll to top" button appear/disappear
 addEventListener('scroll', (event) => {
     if (window.scrollY <= 0) {

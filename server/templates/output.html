@@ -13,20 +13,20 @@
 </div>
 <div class="body-container" hidden>
     <div class="summary-container">
-        <label for="summary-download-option">Download:</label>
-        <select id="summary-download-option" oninput="changeDownloadFormat()">
+        <label for="summary-download-option" style="margin-top:0.3em">Download:</label>
+        <select id="summary-download-option" oninput="changeDownloadFormat()" style="margin-top:0.3em">
             <option value="pdf" selected>PDF</option>
             <option value="docx">word (docx)</option>
         </select>
-        <a class="summary-download-button" href="out" title="Download summary" download>
+        <a class="summary-download-button" href="out" title="Download summary" download style="margin-top:0.3em">
             <svg width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16">
                 <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
                 <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708z"/>
             </svg>
         </a>
-        <form id="clearForm" method="POST" action="/clear">
+        <form id="clearForm" class="clear-form" method="POST" action="/clear">
             {% csrf_token %}
-            <button class="clear-button" onclick="clearConfirm()">Clear data</button>
+            <button type="button" class="clear-button" onclick="clearConfirm()">Clear data</button>
         </form>
     </div>
     <div class="chat-container">
@@ -53,12 +53,4 @@
 <script>
     init();
 </script>
-<!--script>
-    createMessageBubble("This is a very long test message. A very very very long test message.", true);
-    createMessageBubble("This is a very long test message. A very very very long test message.", false);
-    createMessageBubble("This is a very long test message. A very very very long test message.", true, true);
-    createMessageBubble("This is a very long test message. A very very very long test message.", false, true);
-    createMessageBubble("This is a very long test message. A very very very long test message.", true);
-    createMessageBubble("This is a very long test message. A very very very long test message.", false);
-</script-->
 {% endblock %}
