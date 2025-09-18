@@ -16,7 +16,7 @@
         <label for="summary-download-option" style="margin-top:0.3em">Download:</label>
         <select id="summary-download-option" oninput="changeDownloadFormat()" style="margin-top:0.3em">
             <option value="pdf" selected>PDF</option>
-            <option value="docx">word (docx)</option>
+            <option value="docx">Word (docx)</option>
         </select>
         <a class="summary-download-button" href="out" title="Download summary" download style="margin-top:0.3em">
             <svg width="1em" height="1em" fill="currentColor" viewBox="0 0 16 16">
@@ -39,8 +39,7 @@
                 </svg>
             </a>
         </h3>
-        <div class="chat-messages">
-            
+        <div class="chat-messages">   
         </div>
         <form class="chat-question" id="chat-question">
             {% csrf_token %}

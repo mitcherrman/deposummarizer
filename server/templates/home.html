@@ -16,14 +16,12 @@
 
 <form id="form" method="POST" enctype="multipart/form-data" action="{% url 'summarize' %}">
     {% csrf_token %}
-
     {# ───── PDF chooser ───── #}
     <div class="mb-3">
         <label for="fileInput" class="form-label">Choose a PDF:</label>
         <input type="file" class="form-control" id="fileInput" name="file" accept="application/pdf" required>
     </div>
-
-    {# ───── NEW: language selector ───── #}
+    {# ───── language selector ───── #}
     <div class="mb-3" id="lang">
         <div class="form-label d-block">Summary language:</div>
 
@@ -42,14 +40,19 @@
             <label class="form-check-label" for="langBoth">Both</label>
         </div>
     </div>
+    {# ───── keyword filter ───── #}
     <input type="radio" class="filter-type filter-disable" name="filterType" value="none" checked>No filter</input>
     <br/>   
     <input type="radio" class="filter-type" name="filterType" value="include">Only include:</input>
     <br/>
     <input type="radio" class="filter-type" name="filterType" value="exclude">Do not include:</input>
     <br/>
-    <input type="text" class="filter-text" name="filterText" placeholder="Enter filters separated by commas, e.g. &quot;accident details&quot;, &quot;witness background&quot;" disabled>
+    <input type="text" class="filter-text" name="filterText" placeholder="Enter keyword, e.g. &quot;accident details&quot;" disabled>
     <br/>
+    <div class="d-flex align-items-center gap-2 mt-2">
+        <button type="button" class="btn btn-secondary" id="addFilter" onclick="addFilterKeyword()">Add filter</button>
+        <button type="button" class="btn btn-secondary" id="removeFilter" onclick="removeFilterKeyword()" disabled>Remove filter</button>
+    </div>
 </form>
 
 <div class="d-flex align-items-center gap-2 mt-2">

@@ -47,21 +47,20 @@ output_parser = StrOutputParser()
 # Define a prompt template for better input to the LLM
 def getPrompt(filter_keywords=None, filter_exclude=False):
     systemText = ""
-    if filter_keywords == None:
+    if filter_keywords == None or len(filter_keywords) == 0:
         systemText = """You will be given a section from a legal deposition.
             Provide a brief summary of each page, considering the context of the entire document.
             Format the summary as a list of up to 3 concise bullet points using the round bullet point (utf code 2022).
             Separate bullet points with <br/>.
             """
     else:
-        filters = [s.strip() for s in filter_keywords.split(',')]
         if filter_exclude:
             systemText = f"""You will be given a section from a legal deposition.
                 Provide a brief summary of each page, considering the context of the entire document.
                 Format the summary as a list of up to 3 concise bullet points using the round bullet point (utf code 2022).
                 Separate bullet points with <br/>.
                 Some details are unimportant. Do not include information related to the following list of keywords in brackets, separated by commas, in your summary:
-                [{', '.join(filters)}]
+                [{', '.join(filter_keywords)}]
                 Include no information that pertains to these keywords. If a page only contains information related to these keywords, then say that no important information is on the page.
                 """
         else:
@@ -70,7 +69,7 @@ def getPrompt(filter_keywords=None, filter_exclude=False):
                 Format the summary as a list of up to 3 concise bullet points using the round bullet point (utf code 2022).
                 Separate bullet points with <br/>.
                 Only certain details are important. Only include information related to the following list of keywords in brackets, separated by commas, in your summary:
-                [{', '.join(filters)}]
+                [{', '.join(filter_keywords)}]
                 Include no information that does not pertain to these keywords. If a page contains no information related to these keywords, then say that no important information is on the page.
                 """
     prompt = ChatPromptTemplate.from_messages([

@@ -64,11 +64,11 @@ def summarize(request):
     if filter_type not in ["none", "include", "exclude"]:
         return HttpResponseBadRequest(f"Malformed request, invalid value \"{filter_type}\" for filterType")
     
-    filter_text = None
+    filter_keywords = []
     if filter_type != "none":
-        filter_text = request.POST.get("filterText")
-        # Sanitize input by removing characters that aren't a-z, A-Z, 0-9, comma, or hyphen
-        filter_text = re.sub(r'[^a-zA-Z0-9,-]', '', filter_text)
+        for text in request.POST.getlist("filterText"):
+            # Sanitize input by removing characters that aren't a-z, A-Z, 0-9, or hyphen
+            filter_keywords.append(re.sub(r'[^a-zA-Z0-9-]', '', text))
 
     # 3) ------- prevent accidental double-click --------------------------------
     if request.session.get('db_len') == -1:
@@ -85,10 +85,10 @@ def summarize(request):
     request.session.save()
 
     # 5) ------- background worker --------------------------------------------
-    def worker(sess_id, lang, pdf_data, filter_text, filter_type):
+    def worker(sess_id, lang, pdf_data, filter_keywords, filter_type):
         print(f"▶ worker start  sid={sess_id}  lang={lang}  bytes={len(pdf_data)}")
         try:
-            page_cnt = create_summary(pdf_data, sess_id, target_lang=lang, filter_keywords=filter_text, filter_exclude=filter_type)
+            page_cnt = create_summary(pdf_data, sess_id, target_lang=lang, filter_keywords=filter_keywords, filter_exclude=filter_type)
         except Exception as e:
             import traceback, sys
             traceback.print_exc(file=sys.stdout)
@@ -111,7 +111,7 @@ def summarize(request):
                     s["num_docs"] = s.get("num_docs", 0) + 1
                     s.save()
 
-    Thread(target=worker, args=[sid, lang_choice, pdf_bytes, filter_text, filter_type == "exclude"]).start()
+    Thread(target=worker, args=[sid, lang_choice, pdf_bytes, filter_keywords, filter_type == "exclude"]).start()
     return redirect(output)
 
 # ---------------------------------------------------------------------------
@@ -187,7 +187,6 @@ def cyclekey(request):
 # ---------------------------------------------------------------------------
 #  Clear – button on output.html really wipes cached data
 # ---------------------------------------------------------------------------
-@csrf_exempt
 def clear(request):
     if request.method == "POST":
         for key in [
