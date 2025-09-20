@@ -68,7 +68,7 @@ def summarize(request):
     if filter_type != "none":
         for text in request.POST.getlist("filterText"):
             # Sanitize input by removing characters that aren't a-z, A-Z, 0-9, or hyphen
-            filter_keywords.append(re.sub(r'[^a-zA-Z0-9-]', '', text))
+            filter_keywords.append(re.sub(r'[^a-zA-Z0-9- ]', '', text))
 
     # 3) ------- prevent accidental double-click --------------------------------
     if request.session.get('db_len') == -1:

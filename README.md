@@ -16,6 +16,7 @@ The following environment variables must be set:
 - `DB_PORT`: Port number for the PostgreSQL database (default: 5432)
 - `DB_SECRET_ARN`: AWS Secrets Manager ARN containing database credentials (username/password)
 - `DB_CA_PATH`: Path to the SSL certificate bundle for secure database connections
+- `PGVECTOR_ENCRYPTION_KEY`: 32-byte key for encrypting vector database content (optional, defaults to development key)
 
 ### Django Configuration
 - `SECRET_KEY`: Django secret key for cryptographic signing (required in production)
@@ -49,7 +50,7 @@ The app uses:
 - Django for the web framework
 - OpenAI's GPT models for text generation
 - Tesseract for running OCR
-- PGVector for vector storage and similarity search
+- PGVector with encryption support for secure vector storage and similarity search
 - PyMuPDF for PDF processing
 - Langchain for AI model interaction
 - AWS to host infrastructure

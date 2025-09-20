@@ -3,13 +3,13 @@ from decouple import config
 from server import util
 import psycopg
 from langchain_openai import OpenAIEmbeddings
-from langchain_postgres import PGVector
+from server.PGVector_encrypt.vectorstores import PGVectorEncrypt
 
 embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPENAI_KEY'))
 
 class SessionStore(Dbss):
     """
-    A session engine that extends the default database engine functionality by managing PGVector collections.
+    A session engine that extends the default database engine functionality by managing PGVectorEncrypt collections.
     """
     
     def __init__(self, session_key=None):
@@ -57,7 +57,8 @@ class SessionStore(Dbss):
     def _delete_vector_collection(self, session_key):
         collection = f"collection_{session_key}"
         try:
-            vector_store = PGVector(
+            vector_store = PGVectorEncrypt(
+                key=util.get_encryption_key(),
                 connection=util.get_db_sqlalchemy_url(),
                 collection_name=collection,
                 embeddings=embedding,
@@ -71,13 +72,15 @@ class SessionStore(Dbss):
         old_collection = f"collection_{old_key}"
         new_collection = f"collection_{new_key}"
         try:
-            old_vector_store = PGVector(
+            old_vector_store = PGVectorEncrypt(
+                key=util.get_encryption_key(),
                 connection=util.get_db_sqlalchemy_url(),
                 collection_name=old_collection,
                 embeddings=embedding,
                 engine_args=util.get_pgvector_engine_args()
             )
-            new_vector_store = PGVector(
+            new_vector_store = PGVectorEncrypt(
+                key=util.get_encryption_key(),
                 connection=util.get_db_sqlalchemy_url(),
                 collection_name=new_collection,
                 embeddings=embedding,

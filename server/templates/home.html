@@ -47,7 +47,7 @@
     <br/>
     <input type="radio" class="filter-type" name="filterType" value="exclude">Do not include:</input>
     <br/>
-    <input type="text" class="filter-text" name="filterText" placeholder="Enter keyword, e.g. &quot;accident details&quot;" disabled>
+    <input type="text" class="filter-text" name="filterText" placeholder="Enter keyword" disabled>
     <br/>
     <div class="d-flex align-items-center gap-2 mt-2">
         <button type="button" class="btn btn-secondary" id="addFilter" onclick="addFilterKeyword()">Add filter</button>
@@ -55,6 +55,7 @@
     </div>
 </form>
 
+{# ───── buttons ───── #}
 <div class="d-flex align-items-center gap-2 mt-2">
   <button form="form" class="btn btn-primary" id="btnClicked" onclick="if (validateForm()) document.getElementById('form').submit();">Summarize</button>
   {# Clear data form #}
@@ -66,13 +67,13 @@
 
 
 
-{# loading spinner #}
+{# ───── loading spinner ───── #}
 <div id="loading" style="display:none; margin-top: 10px;">
     Processing…
     <img src="{% static '/images/gavel-judge.gif' %}" alt="Loading…" style="width:50px;height:50px;">
 </div>
 
-{# already-have-summary hint #}
+{# ───── already-have-summary hint ───── #}
 <p class="output-url" hidden>
     It appears that you have already summarized a document —
     <a href="{% url 'output' %}">you can find the summary here.</a>

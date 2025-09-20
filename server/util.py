@@ -6,6 +6,7 @@ from threading import Lock
 import boto3, json
 from botocore.exceptions import ClientError
 from typing import List
+import base64
 
 #used to avoid race conditions when modifying sessions outside of views
 session_lock = Lock()
@@ -55,6 +56,19 @@ def get_pgvector_engine_args():
             "sslrootcert": config('DB_CA_PATH')
         }
     }
+
+def get_encryption_key():
+    """
+    Returns the encryption key for PGVector encryption.
+    """
+    key_str = config('PGVECTOR_ENCRYPTION_KEY', default=base64.b64encode(b'default-32-byte-key-for-development!').decode())
+    # Ensure key is exactly 32 bytes for AES-256
+    key_bytes = base64.b64decode(key_str)
+    if len(key_bytes) < 32:
+        key_bytes = key_bytes.ljust(32, b'\0')
+    elif len(key_bytes) > 32:
+        key_bytes = key_bytes[:32]
+    return key_bytes
 
 def params_to_dict(request: HttpResponse, *params: List[str]):
     """

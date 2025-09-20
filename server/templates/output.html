@@ -8,10 +8,14 @@
 {% endblock %}
 
 {% block content %}
+<script src="{% static 'javascript/output.js' %}"></script>
+
+{# ───── loading spinner ───── #}
 <div id="loading">
     <a id="status_msg">Working...</a> <img src="{% static '/images/gavel-judge.gif' %}" alt="Loading..." style="width: 50px; height: 50px;">
 </div>
 <div class="body-container" hidden>
+    {# ───── summary panel ───── #}
     <div class="summary-container">
         <label for="summary-download-option" style="margin-top:0.3em">Download:</label>
         <select id="summary-download-option" oninput="changeDownloadFormat()" style="margin-top:0.3em">
@@ -29,6 +33,7 @@
             <button type="button" class="clear-button" onclick="clearConfirm()">Clear data</button>
         </form>
     </div>
+    {# ───── chat sidebar ───── #}
     <div class="chat-container">
         <h3 class="chat-header">
             Chatbot:
@@ -48,8 +53,4 @@
         </form>
     </div>
 </div>
-<script src="{% static 'javascript/output.js' %}"></script>
-<script>
-    init();
-</script>
 {% endblock %}

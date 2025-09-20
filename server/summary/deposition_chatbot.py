@@ -6,7 +6,7 @@ from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from decouple import config
 from threading import Lock
 from server import util
-from langchain_postgres import PGVector
+from server.PGVector_encrypt.vectorstores import PGVectorEncrypt
 
 LOAD_DB_FROM_FOLDER = True
 DB_PIECE_SIZE = 1
@@ -29,7 +29,8 @@ def initBot(fullText, id):
     #set up chroma with PostgreSQL backend
     collection_name = f"collection_{id}"
     with db_lock:
-        vector_store = PGVector(
+        vector_store = PGVectorEncrypt(
+            key=util.get_encryption_key(),
             connection=util.get_db_sqlalchemy_url(),
             collection_name=collection_name,
             embeddings=embedding,
@@ -47,7 +48,8 @@ def askQuestion(question, id, prompt_append, l):
     #set up vectordb retriever
     collection_name = f"collection_{id}"
     retriever = None
-    vector_store = vector_store = PGVector(
+    vector_store = PGVectorEncrypt(
+        key=util.get_encryption_key(),
         connection=util.get_db_sqlalchemy_url(),
         collection_name=collection_name,
         embeddings=embedding,

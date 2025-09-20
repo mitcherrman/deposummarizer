@@ -4,6 +4,15 @@ checkSummaryIntervalId = 0
 function init() {
     startCheckThread();
     includeChat();
+    //chatbot question submission
+    document.getElementById("question").addEventListener("keydown", (event) => {
+        if (event.key == "Enter") {
+            let form = document.getElementById("chat-question");
+            submitQuestion();
+            form.reset();
+            document.getElementById("question").blur();
+        }
+    });
 }
 
 //restores chat history
@@ -17,6 +26,7 @@ function includeChat() {
 }
 
 function startCheckThread() {
+    checkSummary();
     checkSummaryIntervalId = setInterval(checkSummary, 1000);
 }
 
@@ -106,19 +116,11 @@ function submitQuestion() {
     });
 }
 
-//submit question via keypad
-document.getElementById("question").addEventListener("keydown", (event) => {
-    if (event.key == "Enter") {
-        let form = document.getElementById("chat-question");
-        submitQuestion();
-        form.reset();
-        document.getElementById("question").blur();
-    }
-});
-
 //change download format depending on dropbox value
 function changeDownloadFormat() {
     let data = document.getElementById("summary-download-option").value;
     let download_elem = document.querySelector(".summary-download-button");
     download_elem.setAttribute("href", "out/" + data);
 }
+
+window.onload = init;
