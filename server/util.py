@@ -61,7 +61,7 @@ def get_encryption_key():
     """
     Returns the encryption key for PGVector encryption.
     """
-    key_str = config('PGVECTOR_ENCRYPTION_KEY', default=base64.b64encode(b'default-32-byte-key-for-development!').decode())
+    key_str = config('PGVECTOR_ENCRYPTION_KEY').decode()
     # Ensure key is exactly 32 bytes for AES-256
     key_bytes = base64.b64decode(key_str)
     if len(key_bytes) < 32:

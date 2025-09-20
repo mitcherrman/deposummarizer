@@ -11,7 +11,11 @@ class PGVectorEncrypt(PGVector):
 
     def add_embeddings(self, texts, embeddings, metadatas=None, ids=None, **kwargs):
         encrypted_texts = [self._encrypt(text) for text in texts]
-        return super().add_embeddings(encrypted_texts, embeddings, metadatas, ids, **kwargs)
+        super().add_embeddings(encrypted_texts, embeddings, metadatas, ids, **kwargs)
+    
+    def aadd_embeddings(self, texts, embeddings, metadatas=None, ids=None, **kwargs):
+        encrypted_texts = [self._encrypt(text) for text in texts]
+        return super().aadd_embeddings(encrypted_texts, embeddings, metadatas, ids, **kwargs)
 
     def similarity_search_with_score_by_vector(self, embedding, k=4, filter=None):
         docs_scores_encrypted = super().similarity_search_with_score_by_vector(embedding, k, filter)
