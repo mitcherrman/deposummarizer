@@ -10,7 +10,7 @@ import io, base64, re
 
 from django.http import (
     HttpResponse, HttpResponseNotAllowed, HttpResponseServerError,
-    HttpResponseBadRequest
+    HttpResponseBadRequest, HttpRequest
 )
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
@@ -34,7 +34,7 @@ session_engine = import_module(settings.SESSION_ENGINE)
 # ---------------------------------------------------------------------------
 #  Summarize view  –  handles file upload, language choice, and starts worker
 # ---------------------------------------------------------------------------
-def summarize(request):
+def summarize(request: HttpRequest):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
 
@@ -117,7 +117,7 @@ def summarize(request):
 # ---------------------------------------------------------------------------
 #  Chatbot – ask a question
 # ---------------------------------------------------------------------------
-def ask(request):
+def ask(request: HttpRequest):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
 
@@ -141,7 +141,7 @@ def ask(request):
     s['num_questions'] = s.get('num_questions', 0) + 1
     return HttpResponse(response[0])
 
-def chat_html(request):
+def chat_html(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
 
@@ -154,7 +154,7 @@ def chat_html(request):
     )
     return HttpResponse(rendered)
 
-def transcript(request):
+def transcript(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
 
@@ -172,7 +172,7 @@ def transcript(request):
 #  Session helpers (debug)
 # ---------------------------------------------------------------------------
 @csrf_exempt
-def session(request):
+def session(request: HttpRequest):
     if not request.session.session_key:
         request.session.save()
     print(request.session.session_key)
@@ -180,14 +180,14 @@ def session(request):
     return HttpResponse("done")
 
 @csrf_exempt
-def cyclekey(request):
+def cyclekey(request: HttpRequest):
     request.session.cycle_key()
     return HttpResponse("done")
 
 # ---------------------------------------------------------------------------
 #  Clear – button on output.html really wipes cached data
 # ---------------------------------------------------------------------------
-def clear(request):
+def clear(request: HttpRequest):
     if request.method == "POST":
         for key in [
             "summary_pdf", "status_msg", "db_len",
@@ -200,7 +200,7 @@ def clear(request):
 # ---------------------------------------------------------------------------
 #  Verify – polled by output.js once per second
 # ---------------------------------------------------------------------------
-def verify(request):
+def verify(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
 
@@ -220,7 +220,7 @@ def verify(request):
 # ---------------------------------------------------------------------------
 #  Helper – serve PDF or DOCX
 # ---------------------------------------------------------------------------
-def _serve_output(request, type):
+def _serve_output(request: HttpRequest, type: str):
     if request.method not in ('GET', 'HEAD'):
         return HttpResponseNotAllowed(['GET', 'HEAD'])
 
@@ -262,16 +262,16 @@ def _serve_output(request, type):
     except KeyError:
         return HttpResponse("No summary available", status=409)
 
-def out(request):
+def out(request: HttpRequest):
     return _serve_output(request, "pdf")
 
-def out_docx(request):
+def out_docx(request: HttpRequest):
     return _serve_output(request, "docx")
 
 # ---------------------------------------------------------------------------
 #  User / account helpers (unchanged)
 # ---------------------------------------------------------------------------
-def create_account(request):
+def create_account(request: HttpRequest):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
     user = request.POST.get('username')
@@ -285,7 +285,7 @@ def create_account(request):
     login(request, auth_user)
     return redirect("/home")
 
-def auth(request):
+def auth(request: HttpRequest):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
     user = request.POST.get('username')
@@ -296,13 +296,13 @@ def auth(request):
         return redirect("/home")
     return redirect(f"{settings.LOGIN_URL}?msg=Incorrect username/password.")
 
-def logout_user(request):
+def logout_user(request: HttpRequest):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
     logout(request)
     return redirect(settings.LOGIN_URL)
 
-def delete_account(request):
+def delete_account(request: HttpRequest):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
     user = request.user
@@ -314,34 +314,34 @@ def delete_account(request):
 # ---------------------------------------------------------------------------
 #  Template views (unchanged)
 # ---------------------------------------------------------------------------
-def home(request):
+def home(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
     return render(request, "home.html", util.params_to_dict(request, 'msg'))
 
-def about(request):
+def about(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
     return render(request, "about.html")
 
-def contact(request):
+def contact(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
     return render(request, "contact.html")
 
-def output(request):
+def output(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
     return render(request, "output.html", util.params_to_dict(request, 'msg'))
 
-def login_page(request):
+def login_page(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
     if request.user is None or not request.user.is_authenticated:
         return render(request, "login.html", util.params_to_dict(request, 'msg'))
     return redirect(home)
 
-def new_account(request):
+def new_account(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
     return render(request, "new.html", util.params_to_dict(request, 'msg'))
