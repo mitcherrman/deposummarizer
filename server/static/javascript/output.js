@@ -35,13 +35,14 @@ function startCheckThread() {
 function insertIframe() {
     clearInterval(checkSummaryIntervalId);
     const parent = document.querySelector(".summary-container");
+    const placeholder = document.querySelector(".summary-placeholder");
     const load   = document.getElementById("loading");
 
     const frame = document.createElement("iframe");
     frame.setAttribute("src", "/out");
     frame.style.width = "99%";
     frame.style.aspectRatio = "3 / 2";
-    parent.prepend(frame);
+    parent.replaceChild(frame, placeholder);
 
     document.querySelector(".body-container").removeAttribute("hidden");
     load.parentNode.removeChild(load);
