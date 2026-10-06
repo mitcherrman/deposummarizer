@@ -1,8 +1,5 @@
-checkSummaryIntervalId = 0
-
-//called in rendering
+//called in rendering; job status polling lives in processing.js (B2)
 function init() {
-    startCheckThread();
     includeChat();
     //chatbot question submission
     document.getElementById("question").addEventListener("keydown", (event) => {
@@ -25,15 +22,9 @@ function includeChat() {
     });
 }
 
-function startCheckThread() {
-    checkSummary();
-    checkSummaryIntervalId = setInterval(checkSummary, 1000);
-}
-
-//checks for complete summary, called periodically
-/* ---------- helper to drop spinner & show iframe ---------- */
+/* ---------- helper to drop the processing view & show iframe ----------
+   called by processing.js once the job is ready */
 function insertIframe() {
-    clearInterval(checkSummaryIntervalId);
     const parent = document.querySelector(".summary-container");
     const placeholder = document.querySelector(".summary-placeholder");
     const load   = document.getElementById("loading");
@@ -46,23 +37,6 @@ function insertIframe() {
 
     document.querySelector(".body-container").removeAttribute("hidden");
     load.parentNode.removeChild(load);
-}
-
-/* ---------- periodic poll ---------- */
-function checkSummary() {
-    fetch("out/verify").then((response) => {
-        if (response.status !== 200) {
-            insertIframe();                 // finished (server closed poll)
-        } else {
-            response.text().then((txt) => {
-                if (txt.trim() === "DONE") { // finished (explicit flag)
-                    insertIframe();
-                } else {
-                    document.getElementById("status_msg").textContent = txt;
-                }
-            });
-        }
-    });
 }
 
 //adds message bubble to chatbox

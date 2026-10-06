@@ -4,79 +4,204 @@
 {% block title %}Home · BearSummarizer{% endblock %}
 
 {% block links %}
-<link rel="stylesheet" href="{% static '/styles/home.css' %}">
+<link rel="stylesheet" href="{% static 'styles/home.css' %}">
 {% endblock %}
 
-{% block content %}
-<script src="{% static 'javascript/home.js' %}"></script>
+{% block page %}
+<div class="shell-container upload-page">
+  {% if msg %}<div class="notice-region">{% include "_notice.html" %}</div>{% endif %}
 
-<h1>Upload a PDF of your deposition to BearSummarizer</h1>
+  <header class="upload-intro">
+    <p class="eyebrow">Upload a deposition</p>
+    <h1>Summarize a deposition transcript</h1>
+    <p class="lead">Upload a PDF to get a page-by-page summary you can download as PDF or Word, then ask questions about the testimony.</p>
+  </header>
 
-
-
-<form id="form" method="POST" enctype="multipart/form-data" action="{% url 'summarize' %}">
-    {% csrf_token %}
-    {# ───── PDF chooser ───── #}
-    <div class="mb-3">
-        <label for="fileInput" class="form-label">Choose a PDF:</label>
-        <input type="file" class="form-control" id="fileInput" name="file" accept="application/pdf" required>
+  {% comment %}
+    The session's last job (server-rendered from views.job_status). Only the
+    card for the current state is rendered.
+  {% endcomment %}
+  {% if job_state == "ready" %}
+  <section class="job-card job-card--ready output-url" aria-labelledby="jobCardTitle">
+    <svg class="job-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M8 12.5l2.5 2.5L16 9.5"/></svg>
+    <div class="job-card__body">
+      <h2 class="job-card__title" id="jobCardTitle">Your last summary is ready</h2>
+      <p class="job-card__text">Open it to download the PDF or Word file and ask questions. Uploading a new deposition replaces it.</p>
     </div>
-    {# ───── language selector ───── #}
-    <div class="mb-3" id="lang">
-        <div class="form-label d-block">Summary language:</div>
+    <div class="job-card__actions">
+      <a class="btn btn-primary" href="{% url 'output' %}">Open summary <span aria-hidden="true">→</span></a>
+    </div>
+  </section>
+  {% elif job_state == "running" %}
+  <section class="job-card job-card--running" aria-labelledby="jobCardTitle">
+    <span class="job-card__icon job-card__pulse" aria-hidden="true"></span>
+    <div class="job-card__body">
+      <h2 class="job-card__title" id="jobCardTitle">A summary is in progress</h2>
+      <p class="job-card__text">Your last upload is still being processed. You can follow its progress; a new upload can start once it finishes.</p>
+    </div>
+    <div class="job-card__actions">
+      <a class="btn btn-primary" href="{% url 'output' %}">View progress <span aria-hidden="true">→</span></a>
+    </div>
+  </section>
+  {% elif job_state == "stalled" %}
+  <section class="job-card job-card--stalled" aria-labelledby="jobCardTitle">
+    <svg class="job-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4.5M12 17.5h.01"/></svg>
+    <div class="job-card__body">
+      <h2 class="job-card__title" id="jobCardTitle">Your last summary stopped responding</h2>
+      <p class="job-card__text">It hasn't reported progress for over {{ stall_minutes }} minutes, so it has most likely stopped. Cancel it to upload a document again.</p>
+    </div>
+    <div class="job-card__actions">
+      <button type="button" class="btn btn-primary" onclick="clearConfirm()">Cancel and start over</button>
+      <a class="btn btn-quiet" href="{% url 'output' %}">View status</a>
+    </div>
+  </section>
+  {% elif job_state == "failed" %}
+  <section class="job-card job-card--failed" aria-labelledby="jobCardTitle">
+    <svg class="job-card__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>
+    <div class="job-card__body">
+      <h2 class="job-card__title" id="jobCardTitle">Your last summary couldn't be completed</h2>
+      {% if job_reason == "no-text" %}
+      <p class="job-card__text">No readable text was found in that PDF. Scanned or image-only pages may not be readable; try a PDF with selectable text.</p>
+      {% else %}
+      <p class="job-card__text">Something went wrong while processing it. You can upload the PDF again below; if it keeps failing, the file may be damaged.</p>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
 
-        <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="lang" id="langEn"  value="en"  checked>
-            <label class="form-check-label" for="langEn">English</label>
+  <div class="upload-layout">
+    <form id="form" class="surface surface--elevated upload-card" method="POST" enctype="multipart/form-data" action="{% url 'summarize' %}" novalidate>
+      {% csrf_token %}
+
+      {# ───── 1. PDF ───── #}
+      <div class="upload-step">
+        <label class="upload-step__title" for="fileInput">
+          <span class="upload-step__num" aria-hidden="true">1</span> Deposition PDF
+        </label>
+        <div class="dropzone" id="dropzone" data-state="empty">
+          <input type="file" class="dropzone__input" id="fileInput" name="file" accept="application/pdf,.pdf" required
+                 aria-describedby="fileStatus fileError">
+          <div class="dropzone__empty" aria-hidden="true">
+            <svg class="dropzone__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17v-6M9.5 13.5L12 11l2.5 2.5"/></svg>
+            <p class="dropzone__title">
+              <span class="dropzone__pointer-text">Drag and drop your PDF here, or <span class="dropzone__browse">choose a file</span></span>
+              <span class="dropzone__touch-text"><span class="dropzone__browse">Tap to choose a PDF</span></span>
+            </p>
+            <p class="dropzone__meta">PDF only · nothing is uploaded until you press Summarize</p>
+          </div>
+          <div class="dropzone__file" aria-hidden="true" hidden>
+            <span class="dropzone__badge">PDF</span>
+            <span class="dropzone__file-text">
+              <span class="dropzone__file-name" id="fileName"></span>
+              <span class="dropzone__file-size" id="fileSize"></span>
+            </span>
+            <span class="dropzone__change">Change</span>
+          </div>
+        </div>
+        <p class="visually-hidden" id="fileStatus" aria-live="polite"></p>
+        <p class="field__error" id="fileError" role="alert"></p>
+      </div>
+
+      {# ───── 2. language ───── #}
+      <fieldset class="upload-step" id="lang">
+        <legend class="upload-step__title">
+          <span class="upload-step__num" aria-hidden="true">2</span> Summary language
+        </legend>
+        <div class="segmented segmented--fill">
+          <input class="segmented__input" type="radio" name="lang" id="langEn" value="en" checked>
+          <label class="segmented__option" for="langEn">English</label>
+          <input class="segmented__input" type="radio" name="lang" id="langEs" value="es">
+          <label class="segmented__option" for="langEs">Spanish</label>
+          <input class="segmented__input" type="radio" name="lang" id="langBoth" value="both">
+          <label class="segmented__option" for="langBoth">Both</label>
+        </div>
+        <p class="field__hint">Spanish summaries are translated from the English summary.</p>
+      </fieldset>
+
+      {# ───── 3. focus (keyword filter) ───── #}
+      <fieldset class="upload-step">
+        <legend class="upload-step__title">
+          <span class="upload-step__num" aria-hidden="true">3</span> Summary focus
+        </legend>
+        <div class="choice-group">
+          <div class="choice">
+            <input class="choice__input filter-type filter-disable" type="radio" name="filterType" id="filterNone" value="none" checked>
+            <label class="choice__label" for="filterNone">
+              <span class="choice__title">Full deposition</span>
+              <span class="choice__hint">Summarize every page.</span>
+            </label>
+          </div>
+          <div class="choice">
+            <input class="choice__input filter-type" type="radio" name="filterType" id="filterInclude" value="include">
+            <label class="choice__label" for="filterInclude">
+              <span class="choice__title">Only these topics</span>
+              <span class="choice__hint">Focus the summaries on topics you list.</span>
+            </label>
+          </div>
+          <div class="choice">
+            <input class="choice__input filter-type" type="radio" name="filterType" id="filterExclude" value="exclude">
+            <label class="choice__label" for="filterExclude">
+              <span class="choice__title">Exclude these topics</span>
+              <span class="choice__hint">Leave out topics you list.</span>
+            </label>
+          </div>
         </div>
 
-        <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="lang" id="langEs"  value="es">
-            <label class="form-check-label" for="langEs">Spanish</label>
+        {# chips carry the hidden filterText inputs; the entry box itself is never submitted #}
+        <div class="topics" id="topicPanel" hidden>
+          <label class="field__label" for="topicEntry" id="topicLabel">Topics to include</label>
+          <div class="topics__entry">
+            <input type="text" class="form-control" id="topicEntry" placeholder="e.g. medical treatment"
+                   autocomplete="off" enterkeyhint="done" aria-describedby="topicHint topicError">
+            <button type="button" class="btn btn-secondary" id="addFilter" onclick="addFilterKeyword()">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false"><path d="M12 5v14M5 12h14"/></svg>
+              Add topic
+            </button>
+          </div>
+          <p class="field__hint" id="topicHint">Press Enter or “Add topic” after each one. Only letters A–Z, numbers, spaces and hyphens are used; other characters, including accents, are ignored.</p>
+          <ul class="chip-list" id="topicList" aria-label="Topics" hidden></ul>
+          <p class="visually-hidden" id="topicStatus" aria-live="polite"></p>
+          <p class="field__error" id="topicError" role="alert"></p>
         </div>
+      </fieldset>
 
-        <div class="form-check form-check-inline">
-            <input class="form-check-input" type="radio" name="lang" id="langBoth" value="both">
-            <label class="form-check-label" for="langBoth">Both</label>
-        </div>
-    </div>
-    {# ───── keyword filter ───── #}
-    <input type="radio" class="filter-type filter-disable" name="filterType" value="none" checked>No filter</input>
-    <br/>   
-    <input type="radio" class="filter-type" name="filterType" value="include">Only include:</input>
-    <br/>
-    <input type="radio" class="filter-type" name="filterType" value="exclude">Do not include:</input>
-    <br/>
-    <input type="text" class="filter-text" name="filterText" placeholder="Enter keyword" disabled>
-    <br/>
-    <div class="d-flex align-items-center gap-2 mt-2">
-        <button type="button" class="btn btn-secondary" id="addFilter" onclick="addFilterKeyword()">Add filter</button>
-        <button type="button" class="btn btn-secondary" id="removeFilter" onclick="removeFilterKeyword()" disabled>Remove filter</button>
-    </div>
-</form>
+      {# ───── submit ───── #}
+      <div class="upload-actions">
+        <button type="submit" class="btn btn-accent upload-submit" id="btnClicked">
+          <span class="upload-submit__spinner" aria-hidden="true"></span>
+          <span class="upload-submit__label">Summarize deposition</span>
+          <svg class="upload-submit__arrow" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+        </button>
+        <p class="upload-actions__note" id="submitStatus" aria-live="polite">Long transcripts can take several minutes. You can follow the progress on the next page.</p>
+      </div>
+    </form>
 
-{# ───── buttons ───── #}
-<div class="d-flex align-items-center gap-2 mt-2">
-  <button form="form" class="btn btn-primary" id="btnClicked" onclick="if (validateForm()) document.getElementById('form').submit();">Summarize</button>
-  {# Clear data form #}
-  <form id="clearForm" method="POST" action="{% url 'clear' %}" class="m-0">
-    {% csrf_token %}
-    <button type="button" class="btn btn-warning clear-button" onclick="clearConfirm()">Clear data</button>
-  </form>
+    <aside class="upload-aside" aria-label="About summaries">
+      <section class="aside-card">
+        <h2 class="aside-card__title">How it works</h2>
+        <ol class="how-list">
+          <li>Text is read from each page of your PDF.</li>
+          <li>Each page with enough readable text is summarized in a few bullet points.</li>
+          <li>Download the summary as PDF or Word and ask questions in the chat.</li>
+        </ol>
+      </section>
+      <section class="aside-card aside-card--note">
+        <h2 class="aside-card__title">Good to know</h2>
+        <ul class="note-list">
+          <li>Summaries are AI-generated. Check them against the transcript before relying on them.</li>
+          <li>Page numbers are positions in the uploaded PDF, not printed transcript pages.</li>
+        </ul>
+      </section>
+      <section class="aside-card">
+        <h2 class="aside-card__title">Your session</h2>
+        <p class="aside-card__text">The uploaded PDF, summary and chat history stay in your session until you clear them, log out, or the session expires.</p>
+        <form id="clearForm" method="POST" action="{% url 'clear' %}">
+          {% csrf_token %}
+          <button type="button" class="btn btn-sm btn-danger-outline" onclick="clearConfirm()">Clear data</button>
+        </form>
+      </section>
+    </aside>
+  </div>
 </div>
-
-
-
-{# ───── loading spinner ───── #}
-<div id="loading" style="display:none; margin-top: 10px;">
-    Processing…
-    <img src="{% static '/images/gavel-judge.gif' %}" alt="Loading…" style="width:50px;height:50px;">
-</div>
-
-{# ───── already-have-summary hint ───── #}
-<p class="output-url" hidden>
-    It appears that you have already summarized a document —
-    <a href="{% url 'output' %}">you can find the summary here.</a>
-</p>
 <script src="{% static 'javascript/home.js' %}"></script>
 {% endblock %}

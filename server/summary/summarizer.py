@@ -34,6 +34,7 @@ def update_status_msg(sid: str, msg: str):
         s = session_engine.SessionStore(sid)
         if s.exists(sid):
             s["status_msg"] = msg
+            s["status_at"] = int(time.time())   # progress heartbeat (stalled-job detection)
             s.save()
 
 # Initialize Langchain OpenAI model

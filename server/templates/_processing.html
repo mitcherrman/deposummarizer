@@ -1,0 +1,103 @@
+{% comment %}
+  Processing view for /output (BEAR-V2-B2), driven by processing.js.
+  The initial panel comes from views.job_status (job_state/job_reason);
+  processing.js polls out/verify and switches panels. #loading is the hook
+  output.js's insertIframe() removes when the summary workspace takes over.
+  Server status text is never inserted here; processing.js shows only its
+  own mapped wording.
+{% endcomment %}
+<section id="loading" class="processing" data-state="{{ job_state|default:'running' }}" data-job-reason="{{ job_reason|default:'' }}"
+         aria-label="Summary progress"{% if job_state == "ready" %} hidden{% endif %}>
+
+  {# ───── progress (running / stalled) ───── #}
+  <div class="processing-card surface surface--elevated" data-panel="progress"{% if job_state and job_state != "running" and job_state != "stalled" %} hidden{% endif %}>
+    <div class="processing-head">
+      <div class="doc-motif" aria-hidden="true">
+        <span class="doc-motif__line"></span>
+        <span class="doc-motif__line"></span>
+        <span class="doc-motif__line"></span>
+        <span class="doc-motif__line"></span>
+        <span class="doc-motif__line"></span>
+        <span class="doc-motif__scan"></span>
+      </div>
+      <div class="processing-head__text">
+        <p class="eyebrow">Processing</p>
+        <h1 class="processing-title" id="processingTitle" tabindex="-1">Summarizing your deposition</h1>
+        <p class="processing-lead">This page updates on its own. Long transcripts can take several minutes, so feel free to leave it open in the background.</p>
+      </div>
+    </div>
+
+    <div class="processing-current">
+      <p class="processing-current__line" id="status_msg">Upload received</p>
+      <div class="progress" id="progressBar" role="progressbar" aria-labelledby="status_msg" data-mode="indeterminate">
+        <div class="progress__fill"></div>
+      </div>
+      <p class="processing-current__detail" id="progressDetail">Waiting for processing to start…</p>
+      <p class="processing-current__connection" id="connectionNote" hidden>Connection interrupted. Trying again…</p>
+    </div>
+
+    <ol class="stages" aria-label="Steps">
+      <li class="stage" data-stage="received" data-status="current" aria-current="step">
+        <span class="stage__marker" aria-hidden="true"><svg class="stage__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M5.5 12.5l4 4 9-9"/></svg><span class="stage__num">1</span></span>
+        <span class="stage__label">Upload received</span>
+        <span class="stage__state visually-hidden">in progress</span>
+      </li>
+      <li class="stage" data-stage="extracting" data-status="pending">
+        <span class="stage__marker" aria-hidden="true"><svg class="stage__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M5.5 12.5l4 4 9-9"/></svg><span class="stage__num">2</span></span>
+        <span class="stage__label">Extracting text</span>
+        <span class="stage__state visually-hidden">not started</span>
+      </li>
+      <li class="stage" data-stage="indexing" data-status="pending">
+        <span class="stage__marker" aria-hidden="true"><svg class="stage__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M5.5 12.5l4 4 9-9"/></svg><span class="stage__num">3</span></span>
+        <span class="stage__label">Preparing document search</span>
+        <span class="stage__state visually-hidden">not started</span>
+      </li>
+      <li class="stage" data-stage="summarizing" data-status="pending">
+        <span class="stage__marker" aria-hidden="true"><svg class="stage__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M5.5 12.5l4 4 9-9"/></svg><span class="stage__num">4</span></span>
+        <span class="stage__label">Summarizing testimony</span>
+        <span class="stage__state visually-hidden">not started</span>
+      </li>
+      <li class="stage" data-stage="building" data-status="pending">
+        <span class="stage__marker" aria-hidden="true"><svg class="stage__check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M5.5 12.5l4 4 9-9"/></svg><span class="stage__num">5</span></span>
+        <span class="stage__label">Building the summary PDF</span>
+        <span class="stage__state visually-hidden">not started</span>
+      </li>
+    </ol>
+
+    <div class="processing-stalled" id="stalledNotice"{% if job_state != "stalled" %} hidden{% endif %}>
+      <svg class="processing-stalled__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 3.5l9 16H3z"/><path d="M12 10v4.5M12 17.5h.01"/></svg>
+      <div class="processing-stalled__body">
+        <h2 class="processing-stalled__title">This summary stopped responding</h2>
+        <p class="processing-stalled__text">It hasn't reported progress for over {{ stall_minutes|default:15 }} minutes, so it has most likely stopped. Cancel it to upload the PDF again. Cancelling clears this session's data.</p>
+        <button type="button" class="btn btn-primary" onclick="clearConfirm()">Cancel and start over</button>
+      </div>
+    </div>
+
+    <p class="visually-hidden" id="processingAnnouncer" role="status" aria-live="polite"></p>
+  </div>
+
+  {# ───── failure ───── #}
+  <div class="processing-card processing-card--message surface surface--elevated" data-panel="failed" role="alert"{% if job_state != "failed" %} hidden{% endif %}>
+    <span class="processing-card__icon processing-card__icon--error" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" focusable="false"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5h.01"/></svg>
+    </span>
+    <h1 class="processing-title" id="failedTitle" tabindex="-1">We couldn't summarize this document</h1>
+    <p class="processing-lead" data-reason="no-text"{% if job_reason != "no-text" %} hidden{% endif %}>No readable text was found in this PDF. Scanned or image-only pages may not be readable. Try a PDF with selectable text.</p>
+    <p class="processing-lead" data-reason="error"{% if job_reason == "no-text" %} hidden{% endif %}>Something went wrong while processing it. Please upload the PDF again; if it keeps failing, the file may be damaged or not a valid PDF.</p>
+    <div class="processing-card__actions">
+      <a class="btn btn-primary" href="/home">Upload a PDF</a>
+    </div>
+  </div>
+
+  {# ───── nothing to show ───── #}
+  <div class="processing-card processing-card--message surface surface--elevated" data-panel="none"{% if job_state != "none" %} hidden{% endif %}>
+    <span class="processing-card__icon" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>
+    </span>
+    <h1 class="processing-title" id="noneTitle" tabindex="-1">No summary yet</h1>
+    <p class="processing-lead">There's no document in progress in this session. Upload a deposition to get started.</p>
+    <div class="processing-card__actions">
+      <a class="btn btn-primary" href="/home">Upload a deposition</a>
+    </div>
+  </div>
+</section>

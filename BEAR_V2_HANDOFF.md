@@ -750,3 +750,139 @@ Run locally on `127.0.0.1` only, using a throwaway settings module **outside the
 | `server/static/javascript/base.js` | go-to-top code removed; `removeMessage()` restores focus; Escape closes the mobile menu (gate block unchanged) |
 | `server/tests/test_shell.py` | **new**: 18 shell/contract tests |
 | `BEAR_V2_HANDOFF.md` | this addendum |
+
+---
+
+## B2 addendum — upload + processing experience
+
+Workstream: `BEAR-V2-B2 — upload + processing experience`. Branch: `bearv2/b2-upload-processing`, based on the accepted B1 commit `1249140d3b3df9beb945821347c023cd494dbb46` (not on `main`). Scope: `/home`, the processing part of `/output`, and the job-state plumbing behind them. The completed summary/chat workspace was **not** redesigned (B3). No LLM, prompt, page-identity, ReportLab, DOCX, chatbot/RAG, PGVector/session-engine, AWS, dependency, Stripe or flashcard change.
+
+### B2.1 Home (`/home`) — exact UI
+
+`home.html` now overrides `{% block page %}` (no `.legacy-panel`), with `home.css` rewritten on B1 tokens (no `--cal-*` aliases left in it).
+
+1. **Intro**: eyebrow "Upload a deposition", H1 "Summarize a deposition transcript", one-sentence lead.
+2. **Last-job card** (server-rendered from `views.job_status`; only the matching card is rendered):
+   - `ready`: "Your last summary is ready" + **Open summary →** (`/output`). Keeps the old `.output-url` class. This replaces the hidden italic `HEAD /out` hint.
+   - `running`: "A summary is in progress" + **View progress →**.
+   - `stalled`: warning card, "Your last summary stopped responding … over 15 minutes" + **Cancel and start over** (`clearConfirm()` → `POST /clear`) + **View status**.
+   - `failed`: "Your last summary couldn't be completed" with a fixed reason sentence (`no-text` or `error`); never exception text.
+   - `none`: no card.
+3. **Upload card** (`form#form`, `POST /summarize`, multipart, CSRF, `novalidate`; client checks below, server authoritative):
+   - **① Deposition PDF**: drop zone wrapping the real `<input type="file" id="fileInput" name="file" accept="application/pdf,.pdf" required>`. The input covers the zone at `opacity:0`, so click/tap, keyboard (Tab, then Enter/Space) and native drag-and-drop all go to the real input. There is no JS upload and no `DataTransfer` assignment. Empty state reads "Drag and drop your PDF here, or choose a file" ("Tap to choose a PDF" on coarse pointers) and "PDF only · nothing is uploaded until you press Summarize". Selected state shows a PDF badge, filename (ellipsis), size (bytes/KB/MB) and a **Change** affordance; the whole zone re-opens the picker. Drag-over highlight. A file dropped *next to* the zone is swallowed instead of opening in the tab. A visually hidden `aria-live` line announces "Selected <name>, <size>.".
+   - **② Summary language**: `.segmented` radio group in a `<fieldset>`/`<legend>`: English / Spanish / Both → `lang=en|es|both`, English checked. Hint: "Spanish summaries are translated from the English summary."
+   - **③ Summary focus**: three radio cards in a `<fieldset>`: **Full deposition** (`none`, default) / **Only these topics** (`include`) / **Exclude these topics** (`exclude`), each with a one-line hint. Include/exclude reveals the topic panel ("Topics to include"/"Topics to exclude"): an unnamed entry box (`#topicEntry`) + **Add topic** (`#addFilter`, `addFilterKeyword()`), Enter adds, chips with a 40px × remove button ("Remove topic: …"), duplicates ignored (case-insensitive), a live region announces add/remove, and the hint states the server's real rule ("Only letters A–Z, numbers, spaces and hyphens are used; other characters, including accents, are ignored"). Each chip carries `<input type="hidden" class="filter-text" name="filterText">`. Chips persist across include↔exclude; with Full deposition they are disabled (not submitted), exactly like the old disabled text boxes.
+   - **Summarize deposition →**: one gold `.btn-accent` `type="submit"` (`#btnClicked`), with no inline handler.
+4. **Aside** (right column ≥1024px; 2-up then stacked below): How it works (3 steps), Good to know (AI-generated, check against the transcript; page numbers are PDF positions), Your session + **Clear data** (`form#clearForm`, `.btn-danger-outline`, replaces the red `.clear-button` on home).
+
+**Client validation** (`home.js`, messages in persistent `role="alert"` regions, `aria-invalid`, focus moves to the first problem):
+- no file: "Choose a PDF to summarize.";
+- non-PDF (type `application/pdf` or `.pdf` name): "“x” isn't a PDF. Choose a PDF file." The input is cleared;
+- 0-byte file: "“x” is empty…";
+- include/exclude with no topic: "Add at least one topic, or choose Full deposition." A typed-but-unadded topic is added automatically on submit;
+- a topic with no A–Z/0–9 after the server's sanitizing: "Use letters A–Z or numbers in the topic."
+
+**Submit**: valid submit sets a `submitting` flag (a second click/Enter is `preventDefault`ed), disables the button, shows a spinner and "Uploading…", and updates a polite status line ("Uploading your PDF. Keep this page open…"). Inputs are never disabled, so the payload is unchanged.
+
+**JS lifecycle (B0 findings, verified still present in B1 and fixed)**: `home.js` is included **once**, at the end of the block (it was included twice). The `addEventListener("load", checkForSummary())` immediate call is gone; `checkForSummary`/`HEAD /out` probing was removed because the server now renders the job card. `HEAD /out` itself is unchanged. All listeners receive function references. `pageshow` with `event.persisted` (Back from `/output` restored from bfcache with a busy button and a stale card) reloads the page. `#loading`, `#removeFilter`/`removeFilterKeyword()`, `validateForm` as an inline `onclick`, and the gavel GIF are gone from home. `validateForm()` and `addFilterKeyword()` remain globals.
+
+### B2.2 Request contract — unchanged
+
+Verified by `FormData` inspection in the browser for each `lang` × `filterType` and by tests:
+`csrfmiddlewaretoken`, `file`, `lang` ∈ `en|es|both`, `filterType` ∈ `none|include|exclude`, and `filterText` repeated once per topic in order (none sent for `none`). No other named field exists. The server's sanitizing regex (`[^a-zA-Z0-9- ]` removed) is **unchanged**. Accent-safe handling was **deferred** (owner decision §19.3 #6); the UI now states the rule instead of hiding it.
+
+Server-side `summarize` changes (no new fields or values):
+- All validation (file, `lang`, `filterType`, PDF signature) now runs **before** the session is touched. Previously a bad `filterType` had already wiped the previous summary.
+- **New:** an upload without `%PDF-` in its first 1024 bytes redirects to `/home?msg=That file isn't a PDF…` and starts no job. It used to start a job that failed.
+- `job_started` (epoch seconds) is stored with the job.
+
+### B2.3 Processing (`/output`) — exact workflow
+
+New partial `templates/_processing.html` (`section#loading`, which stays the hook `insertIframe()` removes), `static/javascript/processing.js` and `static/styles/processing.css`. `output.html` now uses `{% block page %}`, includes the partial, and keeps the B3 workspace markup **verbatim** inside `div.body-container.surface.legacy-panel[hidden]`. `output.js` lost only its polling (`checkSummaryIntervalId`, `startCheckThread`, `checkSummary`) and the `clearInterval` in `insertIframe()`. Chat, downloads and the iframe are untouched. Script order is `output.js`, then `processing.js`.
+
+Initial panel is server-rendered from `job_status`: `running`/`stalled` → progress panel; `failed` → error panel; `none` → "No summary yet" + **Upload a deposition**; `ready` → the section is hidden and `insertIframe()` runs immediately (no polling).
+
+Polling: `fetch("out/verify", {cache:"no-store"})` every 1s with `setTimeout` (no overlapping requests). On a network error it backs off (2s, 4s … max 15s) and shows "Connection interrupted. Trying again…". `200` → map the text, show stalled if `X-Job-State: stalled`, keep polling. Non-200 → `ready` (mark all stages done, "Summary ready", ~0.7s, 0 under reduced motion, then `insertIframe()`), `failed` (error panel, focus its heading), `none` (empty panel). A response without the header falls back to the old behavior (show the workspace).
+
+**Progress panel**: CSS document-page motif with a slow "scan" line, H1 "Summarizing your deposition", the current-step line (`#status_msg`, kept), a progress track (`role="progressbar"`), a detail line, a five-step list (`<ol>`, `aria-current="step"`, visually hidden "completed / in progress / not started", check icon drawn on completion), a stalled warning block (`#stalledNotice` + **Cancel and start over**) and a visually hidden `role="status"` announcer that speaks **stage changes only** (not every page tick).
+
+### B2.4 Status → stage mapping (`processing.js`)
+
+The mapper reads only the strings `summarizer.py` already emits. Server text is **never** written into the page; only the mapped wording below is shown.
+
+| Server status (existing) | Stage (step) | Shown line | Bar |
+|---|---|---|---|
+| none yet / `Working...` | Upload received (1) | "Upload received" + "Waiting for processing to start…" | indeterminate |
+| `Extracting text 0 %` | Extracting text (2) | "Extracting text" | indeterminate |
+| `Extracting text… N% (i/total)` | Extracting text (2) | "Extracting text · page i of total" | **N%** (server value) |
+| `Configuring chatbot…` | Preparing document search (3) | "Preparing document search" | indeterminate |
+| `i/total pages processed…` | Summarizing testimony (4) | "Summarizing page i of total" + "Only pages with enough readable text are counted." | **(i−1)/total** (pages finished; `i` is the page just started) |
+| `EN/ES page N: retry k/5…` | Summarizing (4), counts kept | detail "The AI service is responding slowly. Retrying (attempt k of 5)…" | unchanged |
+| `Building PDF summary…` | Building the summary PDF (5) | "Building the summary PDF" | indeterminate |
+| `Finished ✓ …` / 418 + `ready` | all done | "Summary ready" | 100% |
+| `❌ Error: …` or anything unknown | no change | — | — |
+
+Stages never move backwards. "Indeterminate" is a travelling segment that implies no amount; under reduced motion it becomes a static faint full-width fill, the scan line is hidden and checks appear without drawing. There are no estimated or time-based percentages. A test asserts the exact status format strings still exist in `summarizer.py`, so drift fails CI.
+
+### B2.5 Job state, errors and `/out/verify`
+
+`views.job_status(session) → (state, reason)` is the single source for home, output and verify:
+`db_len == -1` → `running`, or `stalled` when neither `job_started` nor the newest `status_at` heartbeat is within `JOB_STALL_SECONDS` (15 min), or when both are missing (job from before B2); `summary_pdf` present → `ready`; `db_len == 0` → `failed` with reason `error` if `status_msg` starts with `❌` (create_summary's crash marker) else `no-text` (the only clean path to 0 is "no page passed `is_page_valid`"); `db_len == -2` → `failed`/`error`; otherwise `none`.
+
+`/out/verify` keeps its status codes and bodies exactly (`200` + status text while running, `418 "done"` otherwise, `409` without a session). **Additive** headers: `X-Job-State: running|stalled|ready|failed|none` and, for failures, `X-Job-Reason: no-text|error`. No exception text is exposed in headers or pages. The verify body can still contain the raw `❌ Error…` text for a moment before `db_len` flips (pre-existing; the page ignores it).
+
+Failure copy: **no-text**: "No readable text was found in this PDF. Scanned or image-only pages may not be readable. Try a PDF with selectable text." **error**: "Something went wrong while processing it. Please upload the PDF again; if it keeps failing, the file may be damaged or not a valid PDF." Both offer **Upload a PDF** (`/home`). A failed job never shows an empty "No summary available" iframe again.
+
+Heartbeat: `summarizer.update_status_msg` now also writes `status_at = int(time.time())` (one line; nothing else in the summarizer changed).
+
+### B2.6 Stuck / duplicate jobs
+
+- **Fast-failure race (found and fixed in B2):** the worker thread used to start *before* the response, and `SessionMiddleware` then re-saved the request's copy of the session (`db_len = -1`). A job that failed within milliseconds (e.g. an unreadable PDF) could be overwritten back to "running" forever. The worker now starts from the redirect's `close()` (`_StartWorkerAfterResponse`), i.e. after the middleware's save. WSGI (PEP 3333) and Django's ASGI handler both call `close()`. Reproduced deterministically in a test that fails on B1.
+- **Double submit:** client: one submission per page load. Server: the B0.5 guard is kept and now runs under `session_lock` against a **re-read of the stored session** as well as `request.session`, so a second request that loaded the session before the first saved it is still refused. This is process-local, like every lock here (S15). The guard still refuses uploads while `db_len == -1`, including stalled jobs; the redirect message differs ("Your previous summary stopped responding. Cancel it to upload a new document.").
+- **Stalled recovery:** after 15 minutes without a heartbeat, home and output show the stalled state with **Cancel and start over**, which is the existing Clear data (`POST /clear`, confirm dialog). Nothing is cancelled automatically. Clear now also pops `job_started`/`status_at` and still pops `depo_pdf`.
+- **Sign-in mid-job (S4) fixed:** `auth` and `create_account` call `_cancel_running_job()` before `login()` (which cycles the key). If a job was running, the job keys and `depo_pdf` are dropped and the user lands on `/home?msg=Signing in cancelled the summary that was in progress. Please upload your PDF again.` The new session is immediately usable. The old worker already aborted at its next `race_check` (its session row is deleted by `cycle_key`). Signing in without a job is unchanged.
+- **Cancellation contract unchanged:** Clear, logout and expiry still make `race_check` abort the worker.
+- **Known limits (documented, not changed):** a worker that is hung (not dead) and wakes up *after* the user cancelled and started a new job would see `db_len == -1` again and could still write its result (the S5-style hazard needs a job token inside `race_check`, i.e. job-system work). A cancelled job may leave its partial `collection_<old sid>` until the hourly sweep (PGVector lifecycle → B6). The 15-minute threshold is a constant (`views.JOB_STALL_SECONDS`). A single LLM call can in theory hang longer (default client timeouts), in which case the UI will call a live job stalled. It never kills it.
+
+### B2.7 Tests
+
+`python manage.py test`: **87 tests, all pass** (39 existing, unmodified, + 48 in `server/tests/test_upload_processing.py`). `manage.py check` passes with production settings + placeholder env and with `server.test_settings`. Against the B1 code (exported with `git archive`, new test file copied in) **40 of the 48 fail**. The 8 that pass guard behavior that must not change (form values, worker args, sanitizing, sign-in without a job, status-string presence).
+
+Covered: home form names/values/defaults/labels and "no other named field"; `home.js` included once, after the form, with no immediate-call listener registration, hidden `filterText` chips and a client double-submit flag; `lang` × worker, `filterType` × repeated `filterText` (order, sanitizing, exclude flag); validation before session mutation; non-PDF rejection; `job_started`; worker start deferred to `close()` and the fast-failure race; guard re-reading stored session; stalled guard message; Clear → new upload; `job_status` matrix; heartbeat; verify codes/bodies/headers (no exception text); real `create_summary` on synthetic PDFs → `no-text` / `error` / `ready`; home cards per state; output panels per state (failure = `role=alert`, no iframe, no exception text; ready hides the processing view; DOM hooks/script order); sign-in mid-job cancels cleanly; status-string drift guard; and the JS mapper run in **Node** (`mapStatus`/`mergeStatus`/`describe`; skipped if Node is absent). Node 24 was present here and the test ran.
+
+### B2.8 Browser verification (local only)
+
+Run on `127.0.0.1` with a throwaway harness **outside the repo** (`server.test_settings` + SQLite in the scratch dir, real views and the real `create_summary`, fake LLMs slowed to ~1.8 s/page, `initBot` replaced by a 3 s sleep, stall threshold lowered to 40 s for the run). No OpenAI, AWS, Postgres or legal documents were used; PDFs were synthetic (`server/tests/fixtures.py`). Files were placed into the real file input through `DataTransfer`, because the pane cannot drive the OS picker.
+
+- **Home**: initial; selected PDF (name, size, Change); long filename (ellipsis); each language; each focus mode (label switches include/exclude, panel hides for Full deposition, chips disabled); three chips including an accented one and a very long unbroken one (wraps inside the chip); duplicate ignored; invalid topic error; non-PDF picked → client error + input cleared; empty submit → file + topic errors, focus on the file input, no navigation; disguised non-PDF (`.pdf` name, text content) → server redirect + notice; `ready`, `running`, `stalled` and `failed` (no-text) cards from real session state.
+- **Processing** (real job, 12 pages, `lang=both`): upload received → extracting (page i of 12, server %) → preparing document search → summarizing page i of 12 → building → completed transition into the existing workspace (iframe shows Page 1…12 headings). A double-click on Summarize produced **one** `POST /summarize` in the server log. Retry wording, building, an injected `❌ Error: secret…` status (not shown anywhere), stalled and failed were also driven by scripting `out/verify` responses on a live processing page. Real `no-text` (blank PDF) and real `error` (corrupt PDF) jobs showed the error panel with no iframe, and the fast failure was **not** stuck as running.
+- **Stalled + recovery (real)**: a never-returning fake page → home stalled card → upload refused with the stalled message → Cancel and start over → `/home`, verify `418 none`, new uploads allowed.
+- **S4 (real)**: running job → `POST /create` with a throwaway local account (password generated in-page) → `/home?msg=Signing in cancelled…`, verify `200 running` → `418 none`.
+- **Keyboard**: Tab into the drop zone (gold focus ring on the zone), Tab/arrow keys through language and focus radios, Enter in the topic box adds a chip without submitting.
+- **Widths**: 375, 390, 768, 1280 and 1600px: `documentElement.scrollWidth == innerWidth` on home (with chips, long filename, errors) and on the processing / empty panels at 375/390, and no element extends past the viewport. At 768 and 1600 the 15px difference is the scrollbar. At 1600 the form column is 736px + a 320px aside inside the 1152px shell. Touch targets measured ≥40px (chip remove raised from 34px after the first pass).
+- **Browser-tool caveat**: the pane renders frames only when a screenshot is taken, so CSS transitions/animations appear frozen mid-way in captures (e.g. a progress fill lagging its value). With transitions disabled the fill matched `aria-valuenow` exactly (58% of 668px = 387px). Reduced motion could not be emulated (same limitation as B1). The CSS fallbacks are in `processing.css`/`home.css` and rely on the global B1 rule.
+
+### B2.9 B3 compatibility and debt
+
+- The workspace (`.body-container` and everything inside) is unchanged B0/B1 markup in a transitional `.legacy-panel`. It still overflows on phones once the job completes (B1.6: ~432px at 390). `.legacy-panel` remains in `base.css` only for this; delete it when B3 composes the workspace. `output.css` still uses the `--cal-*` aliases.
+- Contract B3 must keep: `insertIframe()` stays a global in `output.js` that removes `#loading` and unhides `.body-container`. `processing.js` calls it on `ready` (or B3 replaces both ends together). `output.js` must load before `processing.js`. `#clearForm` must exist exactly once on `/output`: the stalled **Cancel and start over** uses it via `clearConfirm()`.
+- B3 can rely on `X-Job-State` instead of re-deriving state, and on `job_state`/`job_reason` in the `output` view context.
+- Remaining output-side debt (B3): `<select>` + icon download, "Chatbot:" header, Enter-only chat without `preventDefault`, transcript button hidden after reload, inline `oninput`/`onclick` handlers.
+- Not done in B2 (unchanged decisions): upload size limit (owner §19.3 #10, no client limit was invented), accent-safe topics (#6), storing the filename (#5; the processing view does not show it), the `gavel-judge.gif`/`loading.gif` files are now unreferenced but left for B6 cleanup.
+
+### B2.10 Files changed
+
+| File | Change |
+|---|---|
+| `server/views.py` | `job_status`, `JOB_STALL_SECONDS`, `JOB_KEYS`, `_cancel_running_job`, `_looks_like_pdf`, `_StartWorkerAfterResponse`; `summarize` (validate first, PDF check, locked guard re-read, `job_started`, deferred start); `verify` (additive headers); `clear` (also pops `job_started`/`status_at`); `auth`/`create_account` via `_login_and_redirect`; `home`/`output` pass `job_state`/`job_reason`/`stall_minutes` |
+| `server/summary/summarizer.py` | `update_status_msg` writes the `status_at` heartbeat (1 line) |
+| `server/templates/home.html` | redesigned upload workflow (`page` block) |
+| `server/templates/_processing.html` | **new**: processing view |
+| `server/templates/output.html` | `page` block, includes the partial; workspace markup unchanged |
+| `server/static/javascript/home.js` | rewritten (picker, drop zone, topics, validation, busy state, lifecycle) |
+| `server/static/javascript/processing.js` | **new**: polling, status mapper, panels |
+| `server/static/javascript/output.js` | polling removed (moved to `processing.js`) |
+| `server/static/styles/home.css` | rewritten on tokens |
+| `server/static/styles/processing.css` | **new** |
+| `server/tests/test_upload_processing.py` | **new**: 48 tests |
+| `BEAR_V2_HANDOFF.md` | this addendum |

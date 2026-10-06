@@ -6,11 +6,11 @@ from django.shortcuts import render, redirect
 from pdf2docx import Converter
 from server.util import session_lock
 from . import util
-import io, base64, re
+import io, base64, re, time
 
 from django.http import (
     HttpResponse, HttpResponseNotAllowed, HttpResponseServerError,
-    HttpResponseBadRequest, HttpRequest
+    HttpResponseBadRequest, HttpRequest, HttpResponseRedirect
 )
 from django.views.decorators.csrf import csrf_exempt
 from django.conf import settings
@@ -32,13 +32,79 @@ from . import util
 session_engine = import_module(settings.SESSION_ENGINE)
 
 # ---------------------------------------------------------------------------
+#  Summary job state (shared by home, output and /out/verify)
+# ---------------------------------------------------------------------------
+# a running job that has reported no progress for this long is shown as
+# stalled and the user is offered a way to cancel it
+JOB_STALL_SECONDS = 15 * 60
+
+# session keys describing the current job; removed when a job is cancelled
+JOB_KEYS = ("db_len", "status_msg", "job_started", "status_at")
+
+def job_status(session):
+    """
+    Presentation state of the session's summary job as (state, reason):
+    'running' / 'stalled' while db_len == -1, 'ready' once a summary is
+    stored, 'failed' (reason 'no-text' or 'error') for db_len 0 / -2, and
+    'none' otherwise. Reasons are fixed codes, never exception text.
+    """
+    db_len = session.get("db_len")
+    if db_len == -1:
+        last = max(session.get("job_started") or 0, session.get("status_at") or 0)
+        # no timestamp at all: the job was started before stall tracking existed
+        if not last or time.time() - last > JOB_STALL_SECONDS:
+            return "stalled", None
+        return "running", None
+    if "summary_pdf" in session:
+        return "ready", None
+    if db_len == 0:
+        # create_summary marks crashes with "❌ Error"; a clean run that
+        # found no readable page also ends with db_len 0
+        crashed = str(session.get("status_msg", "")).startswith("❌")
+        return "failed", "error" if crashed else "no-text"
+    if db_len == -2:
+        return "failed", "error"
+    return "none", None
+
+def _cancel_running_job(session) -> bool:
+    """Drop an in-flight job from the session; its worker aborts at the next race_check."""
+    if session.get("db_len") != -1:
+        return False
+    for k in JOB_KEYS + ("depo_pdf",):
+        session.pop(k, None)
+    return True
+
+def _looks_like_pdf(data: bytes) -> bool:
+    # PDF readers accept the header anywhere in the first 1024 bytes
+    return b"%PDF-" in data[:1024]
+
+class _StartWorkerAfterResponse(HttpResponseRedirect):
+    """
+    Redirect that starts the summary worker only when the response is closed,
+    i.e. after SessionMiddleware has saved this request's session. Starting
+    it earlier let that save overwrite a job that failed quickly (such as an
+    unreadable PDF) with db_len == -1, leaving the session stuck as running.
+    """
+    def __init__(self, url, start):
+        super().__init__(url)
+        self._start = start
+
+    def close(self):
+        try:
+            super().close()
+        finally:
+            start, self._start = self._start, None
+            if start:
+                start()
+
+# ---------------------------------------------------------------------------
 #  Summarize view  –  handles file upload, language choice, and starts worker
 # ---------------------------------------------------------------------------
 def summarize(request: HttpRequest):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
 
-    # 1) ------- validate input ------------------------------------------------
+    # 1) ------- validate input before touching the session --------------------
     if not (request.FILES and request.FILES.get('file')):
         return HttpResponseBadRequest(
             "Request must include a file field named 'file'."
@@ -48,42 +114,54 @@ def summarize(request: HttpRequest):
     if lang_choice not in ('en', 'es', 'both'):
         return HttpResponseBadRequest("Invalid lang value; use en, es, or both.")
 
-    # 2) ------- guarantee a session id & wipe any stale keys ------------------
-    if not request.session.session_key:
-        request.session.save()
-    sid = request.session.session_key
-
-    # 3) ------- prevent accidental double-click --------------------------------
-    # must run before the stale-key wipe below, which removes db_len
-    if request.session.get('db_len') == -1:
-        return redirect(f"{reverse(output)}?msg=Summary in progress, please wait.")
-
-    # remove leftovers from an earlier run so counters start at 0
-    for k in ("summary_pdf", "status_msg", "db_len",
-              "num_docs", "chat_history", "prompt_append"):
-        request.session.pop(k, None)
-    request.session.modified = True            # flag change before save
-
-	#get request data
     filter_type = request.POST.get("filterType")
     if filter_type not in ["none", "include", "exclude"]:
         return HttpResponseBadRequest(f"Malformed request, invalid value \"{filter_type}\" for filterType")
-    
+
     filter_keywords = []
     if filter_type != "none":
         for text in request.POST.getlist("filterText"):
             # Sanitize input by removing characters that aren't a-z, A-Z, 0-9, or hyphen
             filter_keywords.append(re.sub(r'[^a-zA-Z0-9- ]', '', text))
 
-    # 4) ------- stash file & flags in session ---------------------------------
     pdf_bytes = request.FILES['file'].read()
-    request.session.update({
-        "db_len": -1,                 # in-progress marker
-        "prompt_append": [],
-        "summary_lang": lang_choice,
-        "depo_pdf": base64.b64encode(pdf_bytes).decode(),
-    })
-    request.session.save()
+    if not _looks_like_pdf(pdf_bytes):
+        return redirect(f"{reverse(home)}?msg=That file isn't a PDF. Choose a PDF file and try again.")
+
+    # 2) ------- guarantee a session id ----------------------------------------
+    if not request.session.session_key:
+        request.session.save()
+    sid = request.session.session_key
+
+    with session_lock:
+        # 3) ------- prevent accidental double-click ----------------------------
+        # must run before the stale-key wipe below, which removes db_len. The
+        # stored session is re-read so a concurrent request that loaded the
+        # session before the first upload saved it still sees the running job.
+        stored = session_engine.SessionStore(sid)
+        if request.session.get('db_len') == -1 or stored.get('db_len') == -1:
+            state, _ = job_status(stored if stored.get('db_len') == -1 else request.session)
+            if state == "stalled":
+                msg = "Your previous summary stopped responding. Cancel it to upload a new document."
+            else:
+                msg = "Summary in progress, please wait."
+            return redirect(f"{reverse(output)}?msg={msg}")
+
+        # remove leftovers from an earlier run so counters start at 0
+        for k in ("summary_pdf", "status_msg", "db_len", "job_started", "status_at",
+                  "num_docs", "chat_history", "prompt_append"):
+            request.session.pop(k, None)
+        request.session.modified = True            # flag change before save
+
+        # 4) ------- stash file & flags in session -----------------------------
+        request.session.update({
+            "db_len": -1,                 # in-progress marker
+            "job_started": int(time.time()),
+            "prompt_append": [],
+            "summary_lang": lang_choice,
+            "depo_pdf": base64.b64encode(pdf_bytes).decode(),
+        })
+        request.session.save()
 
     # 5) ------- background worker --------------------------------------------
     def worker(sess_id, lang, pdf_data, filter_keywords, filter_type):
@@ -112,8 +190,8 @@ def summarize(request: HttpRequest):
                     s["num_docs"] = s.get("num_docs", 0) + 1
                     s.save()
 
-    Thread(target=worker, args=[sid, lang_choice, pdf_bytes, filter_keywords, filter_type == "exclude"]).start()
-    return redirect(output)
+    job = Thread(target=worker, args=[sid, lang_choice, pdf_bytes, filter_keywords, filter_type == "exclude"])
+    return _StartWorkerAfterResponse(reverse(output), job.start)
 
 # ---------------------------------------------------------------------------
 #  Chatbot – ask a question
@@ -192,6 +270,7 @@ def clear(request: HttpRequest):
     if request.method == "POST":
         for key in [
             "summary_pdf", "status_msg", "db_len",
+            "job_started", "status_at",
             "num_docs", "chat_history", "prompt_append",
             "depo_pdf",
         ]:
@@ -200,7 +279,7 @@ def clear(request: HttpRequest):
     return redirect("/home")
 
 # ---------------------------------------------------------------------------
-#  Verify – polled by output.js once per second
+#  Verify – polled by processing.js once per second
 # ---------------------------------------------------------------------------
 def verify(request: HttpRequest):
     if request.method != 'GET':
@@ -208,16 +287,26 @@ def verify(request: HttpRequest):
 
     sid = request.session.session_key
     if not sid:
-        return HttpResponse("No active task", status=409)
+        response = HttpResponse("No active task", status=409)
+        response["X-Job-State"] = "none"
+        return response
 
     s = session_engine.SessionStore(sid)
     db_len     = s.get('db_len', 0)
     status_msg = s.get('status_msg', "Working...")
 
     if db_len == -1:
-        return HttpResponse(status_msg)          # 200 – still running
+        response = HttpResponse(status_msg)          # 200 – still running
     else:
-        return HttpResponse("done", status=418)  # stop polling
+        response = HttpResponse("done", status=418)  # stop polling
+
+    # additive: lets the page tell success, failure and "nothing to show"
+    # apart without changing the status codes or body above
+    state, reason = job_status(s)
+    response["X-Job-State"] = state
+    if reason:
+        response["X-Job-Reason"] = reason
+    return response
 
 # ---------------------------------------------------------------------------
 #  Helper – serve PDF or DOCX
@@ -276,7 +365,7 @@ def out_docx(request: HttpRequest):
     return _serve_output(request, "docx")
 
 # ---------------------------------------------------------------------------
-#  User / account helpers (unchanged)
+#  User / account helpers
 # ---------------------------------------------------------------------------
 def create_account(request: HttpRequest):
     if request.method != 'POST':
@@ -289,8 +378,7 @@ def create_account(request: HttpRequest):
     if User.objects.filter(username=user).exists():
         return redirect(f"{reverse(new_account)}?msg=Username is already taken.")
     auth_user = User.objects.create_user(user, email or None, password)
-    login(request, auth_user)
-    return redirect("/home")
+    return _login_and_redirect(request, auth_user)
 
 def auth(request: HttpRequest):
     if request.method != 'POST':
@@ -299,9 +387,18 @@ def auth(request: HttpRequest):
     password = request.POST.get('password')
     auth_user = authenticate(username=user, password=password)
     if auth_user is not None:
-        login(request, auth_user)
-        return redirect("/home")
+        return _login_and_redirect(request, auth_user)
     return redirect(f"{settings.LOGIN_URL}?msg=Incorrect username/password.")
+
+def _login_and_redirect(request: HttpRequest, auth_user):
+    # login() cycles the session key: a running worker keeps the old key and
+    # aborts, while the new session would inherit db_len == -1 and look busy
+    # until it expires. Cancel the job explicitly and say so instead.
+    cancelled = _cancel_running_job(request.session)
+    login(request, auth_user)
+    if cancelled:
+        return redirect(f"{reverse(home)}?msg=Signing in cancelled the summary that was in progress. Please upload your PDF again.")
+    return redirect("/home")
 
 def logout_user(request: HttpRequest):
     if request.method != 'POST':
@@ -321,12 +418,19 @@ def delete_account(request: HttpRequest):
     return redirect(settings.LOGIN_URL)
 
 # ---------------------------------------------------------------------------
-#  Template views (unchanged)
+#  Template views
 # ---------------------------------------------------------------------------
+def _job_context(request: HttpRequest):
+    state, reason = job_status(request.session)
+    context = util.params_to_dict(request, 'msg')
+    context.update(job_state=state, job_reason=reason,
+                   stall_minutes=JOB_STALL_SECONDS // 60)
+    return context
+
 def home(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
-    return render(request, "home.html", util.params_to_dict(request, 'msg'))
+    return render(request, "home.html", _job_context(request))
 
 def about(request: HttpRequest):
     if request.method != 'GET':
@@ -341,7 +445,7 @@ def contact(request: HttpRequest):
 def output(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
-    return render(request, "output.html", util.params_to_dict(request, 'msg'))
+    return render(request, "output.html", _job_context(request))
 
 def login_page(request: HttpRequest):
     if request.method != 'GET':
