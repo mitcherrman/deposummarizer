@@ -3,82 +3,99 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>
-      {% block title %}
-        Django App
-      {% endblock %}
-    </title>
-    {% load static %} {# Load static files #}
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css">
-    <link rel="stylesheet" href="{% static '/styles/base.css' %}"/>
-    <link rel="icon" href="{% static '/images/favicon.ico' %}"/>
+    <meta name="color-scheme" content="light" />
+    <meta name="theme-color" content="#ffffff" />
+    <title>{% block title %}BearSummarizer{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+          integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH"
+          crossorigin="anonymous">
+    <link rel="stylesheet" href="{% static 'styles/tokens.css' %}"/>
+    <link rel="stylesheet" href="{% static 'styles/base.css' %}"/>
+    <link rel="icon" href="{% static 'images/favicon.ico' %}"/>
     {% block links %}
     {% endblock %}
   </head>
   <body hidden>
     <script src="{% static 'javascript/base.js' %}"></script>
-    <nav class="navbar navbar-expand-lg navbar-light sticky-top">
-      {# Add the logo and brand name #}
-      <a class="navbar-brand" href="/">
-        <img src="{% static 'images/bearinc.webp' %}" alt="Logo" style="width: 35px; height: 35px; margin-right: 10px;">
-        Deposum
-      </a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
-        <ul class="navbar-nav">
-          <li class="nav-item active">
-            <a class="nav-link" href="/home">Home</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/about">About</a>
-          </li>
-          <li class="nav-item">
-            <a class="nav-link" href="/contact">Contact</a>
-          </li>
-          <li class="nav-item">
-            {% if user.is_authenticated %}
-            <form id="logoutForm" method="POST" action="/logout">
-              {% csrf_token %}
-              <button type="button" onclick="logoutConfirm()" class="nav-link log-btn logout">Hello, {{ user.get_username }}. <b class="log-text">Log out</b></button>
-            </form>
-            {% else %}
-            <a class="nav-link log-btn" href="/login">Not logged in. <b class="log-text">Log in</b></a>
-            {% endif %}
-          </li>
-        </ul>
-      </div>
-    </nav>
+    <div class="site-shell">
+      <a class="skip-link" href="#main-content">Skip to main content</a>
 
-    {# Page Content #}
-    <div class="container">
-      {% if msg %}
-      {# Error Message #}
-      <div class="msg-container">
-          <c class="msg-text">{{ msg }}</c>
-          <button class="msg-close-button" onclick="removeMessage()">
-              <svg class="msg-close-icon" fill="#000000" viewBox="0 0 256 256" width="1em" height="1em" id="Flat" float="right">
-                  <g id="SVGRepo_bgCarrier" stroke-width="0"></g>
-                  <g id="SVGRepo_tracerCarrier" stroke-linecap="round" stroke-linejoin="round"></g>
-                  <g id="SVGRepo_iconCarrier">
-                      <path d="M202.82861,197.17188a3.99991,3.99991,0,1,1-5.65722,5.65624L128,133.65723,58.82861,202.82812a3.99991,3.99991,0,0,1-5.65722-5.65624L122.343,128,53.17139,58.82812a3.99991,3.99991,0,0,1,5.65722-5.65624L128,122.34277l69.17139-69.17089a3.99991,3.99991,0,0,1,5.65722,5.65624L133.657,128Z"></path>
-                  </g>
-              </svg>
+      <header class="site-header">
+        <nav class="shell-container site-header__inner" aria-label="Primary">
+          <a class="brand" href="/home">
+            <img class="brand__mark" src="{% static 'images/bearinc.webp' %}" alt="BEAR" width="48" height="32">
+            <span class="brand__divider" aria-hidden="true"></span>
+            <span class="brand__name"><strong>Bear</strong>Summarizer</span>
+          </a>
+
+          <button class="site-nav__toggle" type="button" data-bs-toggle="collapse" data-bs-target="#siteNav"
+                  aria-controls="siteNav" aria-expanded="false">
+            <svg class="site-nav__toggle-icon site-nav__toggle-icon--open" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+            <svg class="site-nav__toggle-icon site-nav__toggle-icon--close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+              <path d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+            <span>Menu</span>
           </button>
-      </div>
-      {% endif %}
-      {% block content %} {% endblock %}
+
+          <div class="collapse site-nav__panel" id="siteNav">
+            <div class="site-nav__layout">
+              <ul class="site-nav__links">
+                <li><a class="site-nav__link" href="/home"{% if request.path == "/home" or request.path == "/" %} aria-current="page"{% endif %}>Home</a></li>
+                <li><a class="site-nav__link" href="/about"{% if request.path == "/about" %} aria-current="page"{% endif %}>About</a></li>
+                <li><a class="site-nav__link" href="/contact"{% if request.path == "/contact" %} aria-current="page"{% endif %}>Contact</a></li>
+              </ul>
+
+              <div class="site-nav__account">
+                {% if user.is_authenticated %}
+                <span class="account-chip">
+                  <span class="account-chip__avatar" aria-hidden="true">{{ user.get_username|first }}</span>
+                  <span class="account-chip__name"><span class="visually-hidden">Signed in as </span>{{ user.get_username }}</span>
+                </span>
+                <form id="logoutForm" method="POST" action="/logout">
+                  {% csrf_token %}
+                  <button type="button" onclick="logoutConfirm()" class="btn btn-sm btn-outline logout">Log out</button>
+                </form>
+                {% else %}
+                <a class="btn btn-sm btn-primary" href="/login"{% if request.path == "/login" %} aria-current="page"{% endif %}>Log in</a>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </nav>
+      </header>
+
+      <main id="main-content" class="site-main" tabindex="-1">
+        {% comment %}
+          Pages that own their composition override `page` and place the
+          notice themselves ({% include "_notice.html" %} when msg is set).
+          Legacy pages only fill `content` and get the transitional panel
+          until B2 (home) and B3 (output) replace it.
+        {% endcomment %}
+        {% block page %}
+        <div class="shell-container">
+          {% if msg %}<div class="notice-region">{% include "_notice.html" %}</div>{% endif %}
+          <div class="surface legacy-panel">
+            {% block content %}{% endblock %}
+          </div>
+        </div>
+        {% endblock %}
+      </main>
+
+      <footer class="site-footer">
+        <div class="shell-container site-footer__inner">
+          <p class="site-footer__brand"><strong>BearSummarizer</strong> &middot; affiliated with BEAR</p>
+          <ul class="site-footer__links">
+            <li><a href="/about">About</a></li>
+            <li><a href="/contact">Contact</a></li>
+            <li><a href="https://github.com/mitcherrman/deposummarizer" target="_blank" rel="noopener noreferrer">Source on GitHub<span class="visually-hidden"> (opens in a new tab)</span></a></li>
+          </ul>
+        </div>
+      </footer>
     </div>
 
-    {# "Go to Top" Button #}
-    <button onclick="topFunction()" id="goToTopBtn" title="Go to Top" hidden>↑</button>
-
-    <script src="https://code.jquery.com/jquery-3.7.1.slim.min.js"
-            integrity="sha256-kmHvs0B+OpCW5GVHUNjv9rOmY0IvSIRcf7zGUDTDQM8="
-            crossorigin="anonymous">
-    </script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.min.js"
             integrity="sha384-0pUGZvbkm6XF6gxjEnlmuGrJXVbNuzT9qBBavbLwCsOGabYfZo0T0to5eqruptLy"
             crossorigin="anonymous">

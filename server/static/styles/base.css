@@ -1,89 +1,748 @@
 /*  ──────────────────────────────────────────────────────────────────
-    GLOBAL (Cal Berkeley look & feel)
+    BearSummarizer global foundation (BEAR-V2-B1)
+
+    Load order: bootstrap.min.css → tokens.css → base.css → page CSS.
+    Bootstrap stays for its grid/utility classes and collapse plugin; it
+    is themed through its own CSS variables instead of !important
+    overrides.
+
+    Sections
+      1. Bootstrap theming
+      2. Base elements
+      3. Application shell (skip link, header, navigation, footer)
+      4. Notices (the `msg` banner)
+      5. Shared controls (buttons, inputs, segmented control, surfaces)
+      6. Transitional legacy panel (home/output until B2/B3)
+      7. Motion + reduced motion
     ────────────────────────────────────────────────────────────────── */
-:root{
-  --cal-blue: #003262;
-  --cal-gold: #FDB515;
-  --cal-gold-dark: #c58800;
-  --cal-offwhite: #fdf9ef;
-  --cal-gray: #e5e5e5;
-  --cal-shadow: rgba(0,0,0,.15);
+
+/* 1. BOOTSTRAP THEMING ─────────────────────────────────────────────── */
+:root {
+  --bs-body-font-family: var(--font-body);
+  --bs-body-font-size: var(--text-base);
+  --bs-body-line-height: var(--leading-normal);
+  --bs-body-color: var(--color-text);
+  --bs-body-bg: var(--color-bg);
+  --bs-emphasis-color: var(--color-text);
+  --bs-secondary-color: var(--color-text-muted);
+  --bs-heading-color: var(--color-brand);
+  --bs-border-color: var(--color-border);
+  --bs-border-radius: var(--radius-sm);
+  --bs-border-radius-lg: var(--radius-md);
+  --bs-link-color: var(--navy-700);
+  --bs-link-color-rgb: 40, 74, 126;
+  --bs-link-hover-color: var(--color-brand);
+  --bs-link-hover-color-rgb: 16, 38, 74;
+  --bs-focus-ring-color: var(--color-focus);
 }
 
-body{
-  background-color: var(--cal-offwhite);
-  color:#0d0d0d;
-  font-family:'Roboto','Segoe UI',sans-serif;
+/* 2. BASE ELEMENTS ─────────────────────────────────────────────────── */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
-/*  NAVBAR  */
-.navbar{
-  background-color: var(--cal-blue);
-  padding-left:1em;padding-right:1em;
-  box-shadow:0 2px 5px var(--cal-shadow);
-}
-.navbar-brand,.nav-link{
-  color:#fff !important;
-  font-weight:600;
-}
-.navbar-brand:hover,.nav-link:hover{
-  color:var(--cal-gold) !important;
-}
-.navbar-toggler:hover{
-  background-color:#002147;
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-/*  LOGIN / LOGOUT */
-.logout{background:transparent;border:0}
-.log-btn{font-style:italic;color:#fff !important}
-.log-text{font-style:normal}
-
-/*  MESSAGES  */
-.msg-container{
-  background:#ffd9d9;
-  border-left:6px solid #ff5252;
-  padding:.4rem .6rem;
-  border-radius:4px;
-  margin-bottom:8px;
-  max-height:8rem;overflow-y:auto;
+h1, h2, h3, h4 {
+  color: var(--color-brand);
+  font-family: var(--font-display);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
+  text-wrap: balance;
 }
-.msg-close-button{background:transparent;border:0;float:right}
+h1 { font-size: var(--text-3xl); }
+h2 { font-size: var(--text-2xl); }
+h3 { font-size: var(--text-xl); }
+h4 { font-size: var(--text-lg); }
 
-/*  CONTENT WRAPPER  */
-.container{
-  background:#fff;
-  padding:24px;
-  border-radius:8px;
-  box-shadow:0 4px 8px var(--cal-shadow);
-  margin-top:24px;
-  margin-bottom:24px;
+p { text-wrap: pretty; }
+
+a {
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+  transition: color var(--motion-fast) var(--ease-standard);
+}
+a:hover { text-decoration-thickness: 2px; }
+
+img, svg { max-width: 100%; }
+
+::selection { background: var(--color-accent-soft); color: var(--color-text); }
+
+/* One visible focus treatment for every interactive element. */
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
 }
 
-.clear-button{
-  margin-right:10px;margin-top:0.3em;
-  background:#e54;border:0;border-radius:4px;
-  color:#fff;font-weight:600;padding:4px 10px
+.eyebrow {
+  margin: 0 0 var(--space-2);
+  color: var(--color-accent-strong);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  line-height: var(--leading-snug);
+  text-transform: uppercase;
 }
-.clear-button:hover{background:#c43}
 
-/*  “GO TO TOP” BUTTON  */
-#goToTopBtn{
-  position:fixed;bottom:20px;left:50%;transform:translateX(-50%);
-  z-index:99;
-  border:0;border-radius:50%;width:48px;height:48px;
-  background:var(--cal-gold);color:#001;
-  font-size:20px;font-weight:700;line-height:44px;text-align:center;
-  box-shadow:0 3px 6px var(--cal-shadow);
+.lead {
+  color: var(--color-text-secondary);
+  font-size: var(--text-md);
+  font-weight: var(--weight-regular);
+  line-height: var(--leading-normal);
 }
-#goToTopBtn:hover{background:var(--cal-gold-dark)}
 
-/*  HEADINGS  */
-h1,h2,h3{color:var(--cal-blue);font-family:'Georgia','Times New Roman',serif}
+.shell-container {
+  width: 100%;
+  max-width: var(--layout-max);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
 
-/*  OPTIONAL diagonal bear-claw accent (subtle)  */
-body::after{
-  content:"";position:fixed;top:-20vh;right:-20vw;
-  width:60vw;height:60vh;
-  background:url("/static/images/bear-claw.svg") no-repeat center/cover;
-  opacity:.03;pointer-events:none;
+/* 3. APPLICATION SHELL ─────────────────────────────────────────────── */
+.site-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  min-height: 100dvh;
+}
+
+.site-main {
+  flex: 1 0 auto;
+  padding-block: var(--space-5) var(--space-7);
+}
+.site-main:focus { outline: none; }
+
+@media (min-width: 768px) {
+  .site-main { padding-block: var(--space-6) var(--space-8); }
+}
+
+/* Skip link: off-screen until focused. */
+.skip-link {
+  position: absolute;
+  top: var(--space-2);
+  left: var(--space-2);
+  z-index: 1100;
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-sm);
+  background: var(--color-brand);
+  color: var(--color-text-inverse);
+  font-weight: var(--weight-semibold);
+  text-decoration: none;
+  transform: translateY(-200%);
+  transition: transform var(--motion-fast) var(--ease-standard);
+}
+.skip-link:focus { transform: none; color: var(--color-text-inverse); }
+
+/* Header */
+.site-header {
+  position: sticky;
+  top: 0;
+  z-index: 1030;
+  background: var(--color-surface);
+  border-bottom: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.site-header__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--header-height);
+  column-gap: var(--space-5);
+}
+
+/* Brand: BEAR mark | BearSummarizer */
+.brand {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: var(--tap-target);
+  padding-block: var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-brand);
+  text-decoration: none;
+}
+.brand:hover { color: var(--color-brand); }
+
+.brand__mark {
+  display: block;
+  width: 3rem;
+  height: 2rem;
+  object-fit: contain;
+}
+
+.brand__divider {
+  align-self: stretch;
+  width: 1px;
+  margin-block: var(--space-2);
+  background: var(--color-border-strong);
+}
+
+.brand__name {
+  font-family: var(--font-display);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  line-height: 1;
+  white-space: nowrap;
+}
+.brand__name strong { font-weight: var(--weight-bold); }
+
+/* Mobile menu toggle (hidden from 768px up) */
+.site-nav__toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-width: var(--tap-target);
+  min-height: var(--tap-target);
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-brand);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  transition: background-color var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard);
+}
+.site-nav__toggle:hover {
+  background: var(--color-brand-soft);
+  border-color: var(--color-brand-tint);
+}
+.site-nav__toggle-icon { width: 1.25rem; height: 1.25rem; }
+.site-nav__toggle-icon--close { display: none; }
+.site-nav__toggle[aria-expanded="true"] .site-nav__toggle-icon--open { display: none; }
+.site-nav__toggle[aria-expanded="true"] .site-nav__toggle-icon--close { display: block; }
+
+/* Navigation panel: stacked below the header on phones. */
+.site-nav__panel {
+  flex-basis: 100%;
+}
+.site-nav__panel.collapsing {
+  transition-duration: var(--motion-slow);
+  transition-timing-function: var(--ease-standard);
+}
+
+.site-nav__layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding-block: var(--space-2) var(--space-4);
+}
+
+.site-nav__links {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.site-nav__link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-height: var(--tap-target);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--weight-medium);
+  text-decoration: none;
+  transition: color var(--motion-fast) var(--ease-standard),
+              background-color var(--motion-fast) var(--ease-standard);
+}
+.site-nav__link:hover {
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+}
+.site-nav__link[aria-current="page"] {
+  background: var(--color-brand-soft);
+  color: var(--color-brand);
+  font-weight: var(--weight-semibold);
+}
+.site-nav__link[aria-current="page"]::before {
+  content: "";
+  position: absolute;
+  top: var(--space-2);
+  bottom: var(--space-2);
+  left: 0;
+  width: 3px;
+  border-radius: var(--radius-pill);
+  background: var(--color-accent);
+}
+
+.site-nav__account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--color-border);
+}
+.site-nav__account form { margin: 0; }
+
+.account-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  max-width: 100%;
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+}
+.account-chip__avatar {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border-radius: var(--radius-pill);
+  background: var(--color-brand);
+  color: var(--color-text-inverse);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  text-transform: uppercase;
+}
+.account-chip__name {
+  overflow: hidden;
+  color: var(--color-text);
+  font-weight: var(--weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Phone layout: full-width account actions. */
+@media (max-width: 767.98px) {
+  .site-nav__account .btn,
+  .site-nav__account form { flex: 1 1 100%; }
+  .site-nav__account .btn { width: 100%; }
+}
+
+/* Desktop layout: one row, account pinned right. */
+@media (min-width: 768px) {
+  .site-nav__toggle { display: none; }
+
+  .site-header__inner { flex-wrap: nowrap; }
+
+  .site-nav__panel,
+  .site-nav__panel.collapse {
+    display: flex;
+    flex: 1 1 auto;
+    flex-basis: auto;
+    min-width: 0;
+    height: auto;
+  }
+
+  .site-nav__layout {
+    flex: 1 1 auto;
+    min-width: 0;
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-5);
+    padding: 0;
+  }
+
+  .site-nav__links { flex: none; flex-direction: row; gap: var(--space-1); }
+
+  .site-nav__link { padding-inline: var(--space-3); }
+  .site-nav__link[aria-current="page"] { background: transparent; }
+  .site-nav__link[aria-current="page"]::before {
+    top: auto;
+    right: var(--space-3);
+    bottom: calc(-1 * var(--space-1));
+    left: var(--space-3);
+    width: auto;
+    height: 2px;
+  }
+
+  .site-nav__account {
+    flex-wrap: nowrap;
+    min-width: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+  .site-nav__account form { flex: none; }
+  .account-chip { max-width: 14rem; }
+}
+
+/* Footer */
+.site-footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--color-border);
+  background: var(--color-surface-subtle);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.site-footer__inner {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-5);
+  padding-block: var(--space-5);
+}
+.site-footer__brand { margin: 0; }
+.site-footer__brand strong { color: var(--color-brand); font-weight: var(--weight-semibold); }
+.site-footer__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.site-footer__links a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  color: var(--color-text-secondary);
+}
+.site-footer__links a:hover { color: var(--color-brand); }
+
+/* 4. NOTICES ───────────────────────────────────────────────────────── */
+.notice-region { margin-bottom: var(--space-5); }
+
+.notice {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-4);
+  border: 1px solid var(--color-error-border);
+  border-left: 4px solid var(--color-error);
+  border-radius: var(--radius-md);
+  background: var(--color-error-soft);
+  color: var(--color-text);
+  box-shadow: var(--shadow-sm);
+  animation: surface-in var(--motion-slow) var(--ease-out) both;
+}
+
+.notice__icon {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  margin-top: 0.15rem;
+  color: var(--color-error);
+}
+
+.notice__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-height: 10rem;
+  margin: 0;
+  padding-top: 0.05rem;
+  overflow-y: auto;
+  font-weight: var(--weight-medium);
+  overflow-wrap: anywhere;
+}
+
+.notice__close {
+  margin: calc(-1 * var(--space-2)) 0 calc(-1 * var(--space-2)) auto;
+  color: var(--color-text-secondary);
+}
+.notice__close:hover { background: rgba(179, 38, 30, 0.08); color: var(--color-error); }
+
+/* 5. SHARED CONTROLS ───────────────────────────────────────────────── */
+
+/* Buttons: Bootstrap .btn themed via its variables. */
+.btn {
+  --bs-btn-padding-x: 1.125rem;
+  --bs-btn-padding-y: 0.5rem;
+  --bs-btn-font-family: var(--font-body);
+  --bs-btn-font-size: var(--text-base);
+  --bs-btn-font-weight: var(--weight-semibold);
+  --bs-btn-line-height: 1.5;
+  --bs-btn-border-radius: var(--radius-md);
+  --bs-btn-disabled-opacity: 0.5;
+  --bs-btn-focus-box-shadow: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--tap-target);
+  transition: color var(--motion-fast) var(--ease-standard),
+              background-color var(--motion-fast) var(--ease-standard),
+              border-color var(--motion-fast) var(--ease-standard),
+              box-shadow var(--motion-fast) var(--ease-standard),
+              transform var(--motion-fast) var(--ease-standard);
+}
+.btn:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+.btn:active:not(:disabled) { transform: translateY(1px); }
+
+.btn-sm {
+  --bs-btn-padding-x: 0.875rem;
+  --bs-btn-padding-y: 0.375rem;
+  --bs-btn-font-size: var(--text-sm);
+  --bs-btn-border-radius: var(--radius-sm);
+  min-height: 2.25rem;
+}
+
+.btn-block { width: 100%; }
+
+/* primary: navy, used for the main action on a surface */
+.btn-primary {
+  --bs-btn-color: var(--color-text-inverse);
+  --bs-btn-bg: var(--color-brand);
+  --bs-btn-border-color: var(--color-brand);
+  --bs-btn-hover-color: var(--color-text-inverse);
+  --bs-btn-hover-bg: var(--color-brand-hover);
+  --bs-btn-hover-border-color: var(--color-brand-hover);
+  --bs-btn-active-color: var(--color-text-inverse);
+  --bs-btn-active-bg: var(--color-brand-active);
+  --bs-btn-active-border-color: var(--color-brand-active);
+  --bs-btn-disabled-color: var(--color-text-inverse);
+  --bs-btn-disabled-bg: var(--color-brand);
+  --bs-btn-disabled-border-color: var(--color-brand);
+  box-shadow: var(--shadow-sm);
+}
+
+/* accent: gold, reserved for a single emphasised action */
+.btn-accent {
+  --bs-btn-color: var(--navy-950);
+  --bs-btn-bg: var(--color-accent);
+  --bs-btn-border-color: var(--color-accent);
+  --bs-btn-hover-color: var(--navy-950);
+  --bs-btn-hover-bg: var(--color-accent-hover);
+  --bs-btn-hover-border-color: var(--color-accent-hover);
+  --bs-btn-active-color: var(--navy-950);
+  --bs-btn-active-bg: var(--color-accent-hover);
+  --bs-btn-active-border-color: var(--color-accent-hover);
+  --bs-btn-disabled-color: var(--navy-950);
+  --bs-btn-disabled-bg: var(--color-accent);
+  --bs-btn-disabled-border-color: var(--color-accent);
+}
+
+/* secondary / outline: neutral surface button */
+.btn-secondary,
+.btn-outline {
+  --bs-btn-color: var(--color-brand);
+  --bs-btn-bg: var(--color-surface);
+  --bs-btn-border-color: var(--color-border-control);
+  --bs-btn-hover-color: var(--color-brand);
+  --bs-btn-hover-bg: var(--color-brand-soft);
+  --bs-btn-hover-border-color: var(--color-brand);
+  --bs-btn-active-color: var(--color-brand);
+  --bs-btn-active-bg: var(--color-brand-tint);
+  --bs-btn-active-border-color: var(--color-brand);
+  --bs-btn-disabled-color: var(--color-text-muted);
+  --bs-btn-disabled-bg: var(--color-surface);
+  --bs-btn-disabled-border-color: var(--color-border-strong);
+}
+
+/* quiet: text-like button for low-emphasis actions */
+.btn-quiet {
+  --bs-btn-color: var(--color-text-secondary);
+  --bs-btn-bg: transparent;
+  --bs-btn-border-color: transparent;
+  --bs-btn-hover-color: var(--color-brand);
+  --bs-btn-hover-bg: var(--color-brand-soft);
+  --bs-btn-hover-border-color: transparent;
+  --bs-btn-active-color: var(--color-brand);
+  --bs-btn-active-bg: var(--color-brand-tint);
+  --bs-btn-active-border-color: transparent;
+}
+
+/* danger-outline: destructive but not alarming */
+.btn-danger-outline {
+  --bs-btn-color: var(--color-error);
+  --bs-btn-bg: var(--color-surface);
+  --bs-btn-border-color: var(--color-error-border);
+  --bs-btn-hover-color: var(--color-error-hover);
+  --bs-btn-hover-bg: var(--color-error-soft);
+  --bs-btn-hover-border-color: var(--color-error);
+  --bs-btn-active-color: var(--color-error-hover);
+  --bs-btn-active-bg: var(--color-error-soft);
+  --bs-btn-active-border-color: var(--color-error);
+}
+
+/* Square icon-only button (needs an aria-label). */
+.icon-button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: var(--tap-target);
+  height: var(--tap-target);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-secondary);
+  transition: color var(--motion-fast) var(--ease-standard),
+              background-color var(--motion-fast) var(--ease-standard);
+}
+.icon-button:hover { background: var(--color-brand-soft); color: var(--color-brand); }
+.icon-button svg { width: 1.125rem; height: 1.125rem; }
+
+/* Legacy "Clear data" control (home/output) re-expressed with tokens. */
+.clear-button {
+  margin-top: 0.3em;
+  margin-right: 10px;
+  padding: 4px 10px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: var(--color-error);
+  color: var(--color-text-inverse);
+  font-weight: var(--weight-semibold);
+}
+.clear-button:hover { background: var(--color-error-hover); color: var(--color-text-inverse); }
+
+/* Labels and inputs */
+.form-label,
+.field__label {
+  display: block;
+  margin-bottom: var(--space-2);
+  color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+}
+
+.form-control,
+.form-select {
+  min-height: var(--tap-target);
+  padding: 0.5rem 0.875rem;
+  border: 1px solid var(--color-border-control);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  font-size: var(--text-base);
+  transition: border-color var(--motion-fast) var(--ease-standard),
+              box-shadow var(--motion-fast) var(--ease-standard);
+}
+.form-control::placeholder { color: var(--color-text-muted); opacity: 1; }
+.form-control:hover,
+.form-select:hover { border-color: var(--color-text-secondary); }
+.form-control:focus,
+.form-select:focus {
+  border-color: var(--color-brand);
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: 1px;
+  box-shadow: none;
+}
+
+.form-check-input {
+  border-color: var(--color-border-control);
+}
+.form-check-input:checked {
+  background-color: var(--color-brand);
+  border-color: var(--color-brand);
+}
+.form-check-input:focus {
+  border-color: var(--color-brand);
+  box-shadow: none;
+}
+.form-check-input:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.field { margin-bottom: var(--space-4); }
+.field__hint { margin: var(--space-2) 0 0; color: var(--color-text-muted); font-size: var(--text-sm); }
+.field__error { margin: var(--space-2) 0 0; color: var(--color-error); font-size: var(--text-sm); font-weight: var(--weight-medium); }
+
+/* Segmented control foundation (for B2):
+   <div class="segmented" role="radiogroup" aria-label="…">
+     <input class="segmented__input" type="radio" id="a" name="x" value="a">
+     <label class="segmented__option" for="a">A</label> … </div> */
+.segmented {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-sunken);
+}
+.segmented__input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.segmented__option {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.25rem;
+  padding: var(--space-1) var(--space-4);
+  border-radius: calc(var(--radius-md) - 4px);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition: color var(--motion-fast) var(--ease-standard),
+              background-color var(--motion-fast) var(--ease-standard),
+              box-shadow var(--motion-fast) var(--ease-standard);
+}
+.segmented__option:hover { color: var(--color-brand); }
+.segmented__input:checked + .segmented__option {
+  background: var(--color-surface);
+  color: var(--color-brand);
+  box-shadow: var(--shadow-sm);
+}
+.segmented__input:focus-visible + .segmented__option {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: 1px;
+}
+.segmented__input:disabled + .segmented__option { opacity: 0.5; cursor: not-allowed; }
+
+/* Surfaces */
+.surface {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+.surface--elevated { background: var(--color-surface-elevated); box-shadow: var(--shadow-md); }
+.surface--padded { padding: var(--space-5); }
+@media (min-width: 768px) {
+  .surface--padded { padding: var(--space-6); }
+}
+
+/* 6. TRANSITIONAL LEGACY PANEL ────────────────────────────────────────
+   Pages that only fill {% block content %} (home, output) are framed in
+   this panel until B2/B3 give them their own composition. */
+.legacy-panel {
+  padding: var(--space-5) var(--space-4);
+}
+@media (min-width: 768px) {
+  .legacy-panel { padding: var(--space-6); }
+}
+.legacy-panel > h1:first-of-type { font-size: var(--text-2xl); margin-bottom: var(--space-5); }
+
+/* 7. MOTION ────────────────────────────────────────────────────────── */
+@keyframes surface-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: none; }
+}
+
+.animate-in { animation: surface-in var(--motion-slow) var(--ease-out) both; }
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+  .btn:active:not(:disabled) { transform: none; }
 }

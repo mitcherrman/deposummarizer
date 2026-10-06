@@ -1,35 +1,48 @@
 {% extends "base.html" %}
 {% load static %}
 
+{% block title %}Create account · BearSummarizer{% endblock %}
+
 {% block links %}
-<link rel="stylesheet" href="{% static '/styles/new.css' %}">
+<link rel="stylesheet" href="{% static 'styles/auth.css' %}">
 {% endblock %}
 
-{% block title %} Create Account | Deposum {% endblock %}
-{% block content %}
-<h3>
-  Create account:
-</h3>
-<i class="create">
-  Already have an account? 
-  <a href="login">
-    login
-  </a>
-</i>
-<div class="login-container">
-  <form method="POST" class="login-box" id="form" enctype="multipart/form-data" action="{% url 'create' %}">
-    {% csrf_token %}
-    <label class="login-label" for="username">Username:</label>
-    <input type="text" class="form-control" id="username" name="username" required>
-    <label class="login-label" for="password">Password:</label>
-    <input type="password" class="form-control" id="password" name="password" required>
-    <label class="login-label" for="password">Confirm Password:</label>
-    <input type="password" class="form-control" id="password-confirm" name="password-confirm" required>
-    <script src="{% static 'javascript/new.js' %}"></script>
-    <p class="password-warning bottom-warning" id="warning-box" hidden>
-    </p>
-    <button type="submit" class="btn btn-primary login-btn" id="create-btn" disabled>Create account</button>
-  </form>
-</div>
+{% block page %}
+<div class="shell-container auth-layout">
+  <section class="auth-card surface surface--elevated animate-in" aria-labelledby="auth-title">
+    <header class="auth-card__header">
+      <img class="auth-card__mark" src="{% static 'images/bearinc.webp' %}" alt="" width="60" height="40">
+      <p class="eyebrow">BearSummarizer</p>
+      <h1 class="auth-card__title" id="auth-title">Create an account</h1>
+      <p class="auth-card__subtitle">Accounts are optional; BearSummarizer works without one.</p>
+    </header>
 
+    {% if msg %}{% include "_notice.html" %}{% endif %}
+
+    <form method="POST" class="auth-form" id="form" enctype="multipart/form-data" action="{% url 'create' %}">
+      {% csrf_token %}
+      {# new.js reads the three .form-control inputs by position #}
+      <div class="field">
+        <label class="field__label" for="username">Username</label>
+        <input type="text" class="form-control" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </div>
+      <div class="field">
+        <label class="field__label" for="password">Password</label>
+        <input type="password" class="form-control" id="password" name="password" autocomplete="new-password" required>
+      </div>
+      <div class="field">
+        <label class="field__label" for="password-confirm">Confirm password</label>
+        <input type="password" class="form-control" id="password-confirm" name="password-confirm" autocomplete="new-password" required>
+      </div>
+      <script src="{% static 'javascript/new.js' %}"></script>
+      <div aria-live="polite">
+        <p class="field__error auth-form__warning password-warning" id="warning-box" hidden>
+        </p>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="create-btn" disabled>Create account</button>
+    </form>
+
+    <p class="auth-card__switch">Already have an account? <a href="/login">Log in</a></p>
+  </section>
+</div>
 {% endblock %}

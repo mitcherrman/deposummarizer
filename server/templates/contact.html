@@ -1,18 +1,51 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block title %} Contact | Deposum {% endblock %}
-{% block content %}
-<h3>
-  <a href="https://www.bearinc.com" target="_blank">
-    Bearinc.com
-    <img src="{% static 'images/bearinc.webp' %}" alt="Bearinc Logo" style="width: 40px; height: 40px; vertical-align: middle; margin-right: 10px;">
-  </a>
-</h3>
-<p>Developed by:
-  <ul>
-    <li><a target="_blank" href="about:blank">Mitchell Leung</a> (mitchell.k.leung@gmail.com)</li>
-    <li><a target="_blank" href="https://www.linkedin.com/in/andrei-secor-88a747229/">Andrei Secor</a> (andreijsecor@gmail.com)</li>
-  </ul>
-</p>
+{% block title %}Contact · BearSummarizer{% endblock %}
+
+{% block links %}
+<link rel="stylesheet" href="{% static 'styles/pages.css' %}">
+{% endblock %}
+
+{% block page %}
+<div class="shell-container">
+  {% if msg %}<div class="notice-region">{% include "_notice.html" %}</div>{% endif %}
+  <header class="page-hero animate-in">
+    <p class="eyebrow">Contact</p>
+    <h1>Get in touch</h1>
+    <p class="lead">BearSummarizer is affiliated with BEAR. Reach BEAR through its website, or contact the developers directly.</p>
+  </header>
+
+  <div class="card-grid">
+    <section class="surface surface--padded contact-card" aria-labelledby="contact-bear">
+      <img class="contact-card__logo" src="{% static 'images/bearinc.webp' %}" alt="BEAR logo" width="72" height="48">
+      <h2 class="section-title" id="contact-bear">BEAR</h2>
+      <p>Learn more about BEAR at bearinc.com.</p>
+      <a class="btn btn-outline" href="https://www.bearinc.com" target="_blank" rel="noopener noreferrer">
+        Visit bearinc.com<span class="visually-hidden"> (opens in a new tab)</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M7 17L17 7M9 7h8v8"/></svg>
+      </a>
+    </section>
+
+    <section class="surface surface--padded contact-card" aria-labelledby="contact-developers">
+      <h2 class="section-title" id="contact-developers">Developed by</h2>
+      <ul class="people">
+        <li class="person">
+          <span class="person__avatar" aria-hidden="true">ML</span>
+          <div class="person__body">
+            <p class="person__name">Mitchell Leung</p>
+            <p class="person__detail">mitchell.k.leung@gmail.com</p>
+          </div>
+        </li>
+        <li class="person">
+          <span class="person__avatar" aria-hidden="true">AS</span>
+          <div class="person__body">
+            <p class="person__name"><a target="_blank" rel="noopener noreferrer" href="https://www.linkedin.com/in/andrei-secor-88a747229/">Andrei Secor<span class="visually-hidden"> on LinkedIn (opens in a new tab)</span></a></p>
+            <p class="person__detail">andreijsecor@gmail.com</p>
+          </div>
+        </li>
+      </ul>
+    </section>
+  </div>
+</div>
 {% endblock %}

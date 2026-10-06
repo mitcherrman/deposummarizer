@@ -1,30 +1,38 @@
 {% extends "base.html" %}
-{% load static %} <!-- Load static files -->
+{% load static %}
+
+{% block title %}Log in · BearSummarizer{% endblock %}
 
 {% block links %}
-<link rel="stylesheet" href="{% static '/styles/login.css' %}">
+<link rel="stylesheet" href="{% static 'styles/auth.css' %}">
 {% endblock %}
 
-{% block title %} Login | Deposum {% endblock %}
-{% block content %}
-<h3>
-  Login:
-</h3>
-<i class="create">
-  No account? 
-  <a href="new">
-    create account
-  </a>
-</i>
-<div class="login-container">
-  <form method="POST" class="login-box" id="form" enctype="multipart/form-data" action="{% url 'auth' %}">
-    {% csrf_token %}
-    <label class="login-label" for="username">Username:</label>
-    <input type="text" class="form-control" id="username" name="username" required>
-    <label class="login-label" for="password">Password:</label>
-    <input type="password" class="form-control" id="password" name="password" required>
-    <button type="submit" class="btn btn-primary login-btn" id="btnClicked">Login</button>
-  </form>
-</div>
+{% block page %}
+<div class="shell-container auth-layout">
+  <section class="auth-card surface surface--elevated animate-in" aria-labelledby="auth-title">
+    <header class="auth-card__header">
+      <img class="auth-card__mark" src="{% static 'images/bearinc.webp' %}" alt="" width="60" height="40">
+      <p class="eyebrow">BearSummarizer</p>
+      <h1 class="auth-card__title" id="auth-title">Welcome back</h1>
+      <p class="auth-card__subtitle">Log in to your account. Accounts are optional; BearSummarizer works without one.</p>
+    </header>
 
+    {% if msg %}{% include "_notice.html" %}{% endif %}
+
+    <form method="POST" class="auth-form" id="form" enctype="multipart/form-data" action="{% url 'auth' %}">
+      {% csrf_token %}
+      <div class="field">
+        <label class="field__label" for="username">Username</label>
+        <input type="text" class="form-control" id="username" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+      </div>
+      <div class="field">
+        <label class="field__label" for="password">Password</label>
+        <input type="password" class="form-control" id="password" name="password" autocomplete="current-password" required>
+      </div>
+      <button type="submit" class="btn btn-primary btn-block" id="btnClicked">Log in</button>
+    </form>
+
+    <p class="auth-card__switch">New here? <a href="/new">Create an account</a></p>
+  </section>
+</div>
 {% endblock %}

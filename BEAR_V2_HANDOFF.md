@@ -653,3 +653,100 @@ Manual verification (not committed):
 - **B4:** extend `PageText` (e.g. `method`, `status`) rather than replacing it. Summary records already carry `pdf_page`; keep the pipeline, not the model, as the source of page numbers. `db_len` semantics changed slightly (all extracted pages, no −2). Chatbot `k = max(6, db_len/32)` is effectively unchanged.
 - **B5:** `pdf_headings_to_markers()` in `server/tests/fixtures.py` parses `Page N` headings. If the heading becomes "PDF page N", update the regex there; the identity assertions themselves should stay.
 - **Tests vs. production sessions:** tests use Django cache sessions, so `server/vector_db_session.py` and PGVector are not exercised. B6 lifecycle work needs its own Postgres-backed tests, as already noted.
+
+---
+
+## B1 addendum — visual foundation
+
+Workstream: `BEAR-V2-B1 — visual foundation`. Branch: `bearv2/b1-visual-foundation`, based on B0.5 commit `9e1dfc1025c69b02cadcfda184a13c3529f35c90`. Templates/CSS/JS only: no view, URL, settings, summarizer, chatbot, session or dependency-manifest change. The upload workflow (B2) and the output workspace (B3) were **not** redesigned.
+
+### B1.1 What was implemented
+
+- **Design tokens** in a new `server/static/styles/tokens.css` (custom properties on `:root`): raw navy/gold/warm-neutral palette, then semantic colors (bg, surface, subtle/sunken/elevated surface, text primary/secondary/muted/inverse, border, border-strong, **border-control** for inputs, brand, accent, success/warning/error with soft and border variants, focus); type families, a 1rem base scale with `clamp()` display sizes, line heights, weights, tracking; spacing `--space-1…8` (4px → 64px); radius sm/md/lg/pill (6/10/16/999px); three restrained navy-tinted shadows; motion `--motion-fast/standard/slow` (120/200/280ms) with two easings; layout max 72rem, prose 44rem, auth card 26rem, gutter 16px → 24px (≥768) → 32px (≥1280), header 4rem, tap target 44px.
+- **Palette decision:** the Cal-Berkeley `#003262`/`#FDB515` pair was refined, not kept: brand navy `#10264a`, accent gold `#d9a23a`, warm document background `#f6f4ef`, white surfaces. Gold is an accent only (active-nav bar, list markers, the card "gold tab"); it is never body text on light backgrounds except the darker `--color-accent-strong` (`#9a6b0c`, ≈4.9:1 on the page background). Focus ring = `#9a6b0c`, 2px with 2px offset (≥4:1 on bg and white). Input borders use `#8f897b` (≈3.4:1 on white).
+- **Typography:** system stacks only, no web-font download (no new third-party request). Body: `system-ui, -apple-system, "Segoe UI", Roboto, …`. Display: `"Segoe UI Variable Display"` first (Windows 11), then the same stack. Headings are semibold navy sans with slight negative tracking; the Georgia serif headings and the never-loaded "Roboto" reference are gone.
+- **Branding:** user-facing name is **BearSummarizer** everywhere (titles `Page · BearSummarizer`, header wordmark, footer, auth cards). "Deposum" no longer appears in any template. The only edits to `home.html`/`output.html` are three brand strings (title blocks, the home H1 word, the chat placeholder word). No module, route or repository was renamed. The BEAR mark (`bearinc.webp`, dark line art) is now on a **white header**, which fixes the B0 "logo invisible on navy" problem without filters or new assets.
+- **Global shell (`base.html`):** skip link → sticky white header (BEAR mark | **Bear**Summarizer wordmark, Home/About/Contact, account area) → `<main id="main-content" tabindex="-1">` → slim footer (brand line, About, Contact, existing GitHub link). The old single Bootstrap `.container` card is gone.
+  - Pages that own their composition override `{% block page %}` and place the notice themselves (`{% include "_notice.html" %}` when `msg` is set). Login, new, about, contact and 404 do this.
+  - Legacy pages that only fill `{% block content %}` (home, output) get a **transitional** white panel (`.surface.legacy-panel`) plus the notice above it. B2/B3 should switch those pages to `page` and delete `.legacy-panel`.
+- **Navigation:** Bootstrap's collapse plugin is still the only JS behind the mobile menu (no new framework). Below 768px a visible bordered "☰ Menu" button (icon swaps to ✕, `aria-expanded` managed by Bootstrap, `aria-controls="siteNav"`) reveals stacked 44px links and a full-width account action. From 768px up: one row, links left, account right, active page = navy text + 2px gold underline (`aria-current="page"`, computed from `request.path`). `Escape` closes the open mobile menu and returns focus to the toggle (`base.js`). Long usernames truncate with an ellipsis; the row never wraps at 768px.
+- **Account state:** anonymous → "Log in" button. Authenticated → initial avatar + username ("Signed in as" for screen readers) + "Log out". **Logout keeps the B0.5 contract exactly:** `form#logoutForm` (POST `/logout`, CSRF) containing one `<button type="button" onclick="logoutConfirm()">`.
+- **Notice (`msg`):** new partial `server/templates/_notice.html`: `div.msg-container.notice[role=alert]` with an icon, `<p class="msg-text notice__text">{{ msg }}</p>` (autoescaped) and a 44px `<button type="button" aria-label="Dismiss message" onclick="removeMessage()">`. The invalid `<c>` tag is gone. Error-toned (red left rule, soft red surface); long text wraps (`overflow-wrap:anywhere`) and scrolls past 10rem. `removeMessage()` now also moves focus to `<main>` so focus is not lost. Same `msg` context contract (`?msg=` via `util.params_to_dict`); no backend change.
+- **Shared controls (base.css §5):** Bootstrap themed through its own CSS variables (no `!important` except the standard reduced-motion reset). `.btn` → 44px min height, 10px radius, semibold; variants `.btn-primary` (navy), `.btn-accent` (gold, for one emphasised action — B2's Summarize is the obvious candidate), `.btn-secondary`/`.btn-outline` (neutral surface), `.btn-quiet`, `.btn-danger-outline`, `.btn-sm`, `.btn-block`; `.icon-button` (44px square, needs `aria-label`); `.form-control`/`.form-select` (44px, control border, gold focus outline); `.form-check-input` brand colors; `.field`/`.field__label`/`.field__hint`/`.field__error`; **`.segmented`** radio-group foundation (markup documented in base.css; unused until B2); `.surface`, `.surface--elevated`, `.surface--padded`; `.eyebrow`, `.lead`, `.shell-container`. `.clear-button` keeps its legacy look but uses tokens.
+- **Pages:** `/login` and `/new` share `auth.css` (centered elevated card with a navy rule + short gold tab, BEAR mark, eyebrow, H1, subtitle stating accounts are optional, notice inside the card, labelled fields, full-width primary button, switch link). `/about`, `/contact` and the 404 share `pages.css`.
+  - **About:** hero + "What it does" + "How it works" + "Good to know" callout (summaries/answers are model-generated and must be checked against the transcript; page numbers are positions in the uploaded PDF, not printed transcript pages; account optional) + open-source and BEAR cards. Every statement maps to a VERIFIED item in §3/§12 or B0.5.2; no claims about users, accuracy, security, compliance or scale.
+  - **Contact:** BEAR card (existing `https://www.bearinc.com` destination) and "Developed by" card. The two existing names and email addresses are kept as plain text (no new personal data, no mailto links added). Mitchell Leung's link was `about:blank` and git history never had a real URL for it, so the name is now rendered **without a link**. Andrei Secor's existing LinkedIn URL is kept. Whether to keep personal emails at all is still owner decision §19.3 #11.
+  - **404:** shell-consistent card, decorative `404` numeral (`aria-hidden`), "Page not found", "Go to home" + "About BearSummarizer".
+- **Removed:** the global go-to-top button, `topFunction()` and its scroll listener (no page or script relied on them; every B1 page is short). The `body::after` decorative reference to the missing `bear-claw.svg` (no replacement asset). `login.css` and `new.css` (superseded by `auth.css`; this also removes the tan/brown legacy styling).
+- **Motion:** hover/focus color transitions (120ms), menu collapse (280ms, Bootstrap), a 280ms 6px fade-up entrance on auth cards, page heroes, the 404 card and notices (no delays, nothing blocks input), 1px press on buttons. `@media (prefers-reduced-motion: reduce)` reduces all animations/transitions to ~0 and removes the press transform; Bootstrap's own reduced-motion rules also still apply. No processing animation (B2).
+
+### B1.2 Dependencies
+
+| Dependency | Decision |
+|---|---|
+| Bootstrap 5.3.3 CSS | **Kept.** Now loaded with SRI `sha384-QWTKZyjp…` (verified in the browser: stylesheet loads, 1,298 rules). |
+| Bootstrap 5.3.3 JS (non-bundle) | **Kept**, same SRI, still at end of body. Only the collapse plugin is used. |
+| jQuery 3.7.1 slim | **Removed.** Grep found no `$(`/`jQuery` use; Bootstrap 5 does not need it. |
+| Bootstrap Icons 1.11.3 | **Removed.** No `bi-*` class anywhere; B1 icons are small inline SVGs. |
+| Web fonts | None added. |
+
+### B1.3 Hostname gate and other B0.5 invariants
+
+The `base.js` gate block (lines 1–8) is **byte-identical** to B0.5; the allowlist is still exactly the five approved hosts. `<body hidden>` with `base.js` as the first element of `<body>` is unchanged and now covered by a test. Logout Cancel/OK semantics, DOCX lifecycle, Clear/`depo_pdf`, anonymous `/delete`, double-submit guard, `PageText` and page identity are untouched (no Python file outside `server/tests/` changed). All §15.2 DOM hooks used by home/output JS are unchanged; `#goToTopBtn`/`topFunction` were removed from that list deliberately (see B1.1).
+
+### B1.4 Tests
+
+`python manage.py test`: **39 tests, all pass** (21 B0.5 + 18 new in `server/tests/test_shell.py`). No B0.5 test was modified. `manage.py check` passes with production settings plus placeholder env and with `server.test_settings`.
+
+New tests (template rendering through `RequestFactory` + a small HTML tree parser; no CSS snapshots):
+- every page template has a `BearSummarizer` title, the brand link, and no "Deposum"; brand mark alt text;
+- `msg` renders exactly one `role=alert` notice with the text in a `<p>`, no `<c>`, one `type=button` close control with `aria-label` and `removeMessage()`, on every page that can receive `msg`; nothing without `msg`; HTML in `msg` is escaped; `removeMessage()` still targets `.msg-container`;
+- primary nav links, anonymous login link, `aria-current` only on the active page, mobile toggle ↔ collapse wiring (`aria-controls`/`data-bs-target`/`aria-expanded`, visible label), authenticated account state + logout form, skip link → `#main-content`;
+- body-hidden gate with `base.js` first; unknown route renders the custom 404 with `DEBUG=False`;
+- login form contract (POST `/auth`, CSRF, `username`/`password`, labels ↔ inputs, unique `for`); create-account contract (POST `/create`, CSRF, `.form-control` order `username, password, password-confirm` for `new.js`, `#create-btn` `type=submit` + `disabled`, `#warning-box`, `new.js` inside the form, labels ↔ inputs — this guards the fixed duplicate `for="password"`);
+- every `/static/` reference in rendered templates exists on disk, every CSS `url()` resolves (guards against another `bear-claw.svg`), and a reduced-motion media query exists.
+
+### B1.5 Manual / browser verification
+
+Run locally on `127.0.0.1` only, using a throwaway settings module **outside the repo** that imports `server.test_settings` (placeholder OpenAI key, no AWS), uses SQLite in the scratch directory and cache sessions, and sets `DEBUG=False` (`runserver --insecure`) so the real 404 template renders. No OpenAI, AWS, Postgres, production data or legal documents were used.
+
+- Pages checked: `/home`, `/output`, `/login` (with and without `?msg=`), `/new`, `/about`, `/contact`, unknown routes (404), plus `/home?msg=…`.
+- Widths: 375, 390, 768, 1280 and 1600px. `documentElement.scrollWidth == innerWidth` on every B1-owned page at 375 and 390 (and at 768/1280/1600, allowing for the scrollbar). At 1600px content and header both cap at 1152px.
+- Mobile menu: opens and closes, `aria-expanded` toggles, links are 44px, Escape closes it and focus returns to the toggle with a visible ring.
+- Network: every `/static/` request returned 200/304; no `bear-claw.svg` request; Bootstrap CSS passed SRI.
+- Auth end to end against the local SQLite DB: `new.js` states (empty → disabled + "All fields must be filled.", mismatch → disabled + "Passwords do not match.", match → enabled); account creation → redirect to `/home` with the authenticated header (a long username truncates on one row at 768px); logout with `confirm` stubbed to Cancel via click, real Enter and real Space → no submission, still signed in; with OK → exactly **one** `POST /logout` in the server log → `/login`, anonymous header. The test password was generated inside the page and never left it.
+- Keyboard: skip link appears on the first Tab; focus ring visible on inputs, buttons, nav links and the notice close button; dismissing the notice moves focus to `<main>`.
+- `/home` and `/output` legacy content renders and works inside the transitional panel (home `HEAD /out` probe and output polling behave as before: 409 with no session).
+- Reduced motion: the `prefers-reduced-motion: reduce` rule is present in the live CSSOM. The browser tool could not emulate the media feature, so the effect itself was not observed.
+- Pre-existing, not caused by B1: the browser requests `/favicon.ico` at the site root (404); the icon link still points to `static/images/favicon.ico` (a WebP file with an `.ico` name, per B0 §9). Left for B6.
+
+### B1.6 Known visual debt left for B2/B3 (intentional)
+
+- **`/home` (B2):** still the legacy form inside `.legacy-panel`: raw filter radios with invalid `</input>` closers and `<br/>` spacing, an unstyled keyword input, "Add/Remove filter" buttons, the gold Summarize from `home.css` beside a red "Clear data", the gavel GIF, and `home.js` included twice. It fits at 375px but is not designed.
+- **`/output` (B3):** still overflows on phones. At 390px the layout viewport expands to **432px** (B0 measured 423px) because of `.chat-container{width:300px}` and the non-wrapping flex row. The `<select>` + 1em download icon, "Chatbot:" header and Enter-only chat remain. The `.chat-header` `<h3>` keeps its own `output.css` styling.
+- `home.css`/`output.css` still use the old `--cal-*` names; `tokens.css` maps them as **legacy aliases** (marked for removal). Migrate those files to semantic tokens, then delete the aliases.
+- `.clear-button` (base.css §5) is a token-ised copy of the legacy red button; B2/B3 should replace it, e.g. with `.btn.btn-danger-outline`.
+
+### B1.7 Compatibility notes for later phases
+
+- **B2/B3:** switch `home.html`/`output.html` to `{% block page %}` (wrap content in `.shell-container`, include `_notice.html` when `msg`), then delete `.legacy-panel` from base.css. Use the existing primitives (`.btn-*`, `.field*`, `.form-control`, `.segmented`, `.surface*`, `.icon-button`) rather than new one-off styles; add new tokens to `tokens.css` instead of raw values. Keep every §15.2 hook. `#goToTopBtn`/`topFunction()` no longer exist: if the B3 workspace needs a back-to-top control, scope it to that page. If a page adds its own `.form-control` elements, `new.js` is unaffected (it only runs on `/new`).
+- **B2:** motion tokens and the `surface-in` keyframe are available for the processing view; respect the global reduced-motion rule (don't fight it with `!important`).
+- **B4/B5:** nothing in B1 touches the summarizer, prompts, PDF or DOCX. For brand consistency B5 can reuse the palette values (navy `#10264a`, gold `#d9a23a`, text `#152034`) in the ReportLab renderer instead of Bootstrap blue `#007bff`.
+- **B6:** remaining Bootstrap usage is the CSS reset/utilities, form base styles and the collapse plugin. Removing Bootstrap later would need replacements for those plus a small collapse script. Inline handlers (`logoutConfirm`, `removeMessage`, `clearConfirm`, …) are still present, so a CSP still needs them removed first. If the hostname gate changes, update `APPROVED_HOSTS` in `test_frontend.py`.
+
+### B1.8 Files changed
+
+| File | Change |
+|---|---|
+| `server/static/styles/tokens.css` | **new**: design tokens + legacy aliases |
+| `server/static/styles/base.css` | rewritten: Bootstrap theming, base elements, shell, notice, shared controls, legacy panel, motion |
+| `server/static/styles/auth.css` | **new**: login/create-account |
+| `server/static/styles/pages.css` | **new**: about/contact/404 |
+| `server/static/styles/login.css`, `new.css` | **deleted** (superseded by `auth.css`) |
+| `server/templates/base.html` | new shell; jQuery and Bootstrap Icons removed; Bootstrap CSS SRI added; go-to-top removed |
+| `server/templates/_notice.html` | **new**: semantic `msg` notice |
+| `server/templates/login.html`, `new.html`, `about.html`, `contact.html`, `404.html` | redesigned on the new system (form contracts preserved; duplicate label `for` fixed) |
+| `server/templates/home.html`, `output.html` | brand strings only |
+| `server/static/javascript/base.js` | go-to-top code removed; `removeMessage()` restores focus; Escape closes the mobile menu (gate block unchanged) |
+| `server/tests/test_shell.py` | **new**: 18 shell/contract tests |
+| `BEAR_V2_HANDOFF.md` | this addendum |

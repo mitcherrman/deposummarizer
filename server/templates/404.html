@@ -1,8 +1,22 @@
 {% extends "base.html" %}
+{% load static %}
 
-{% block title %} Page Not Found | Deposum {% endblock %}
-{% block content %}
-<h3>
-    This page does not exist - use the topbar to navigate to an existing page.
-</h3>
+{% block title %}Page not found · BearSummarizer{% endblock %}
+
+{% block links %}
+<link rel="stylesheet" href="{% static 'styles/pages.css' %}">
+{% endblock %}
+
+{% block page %}
+<div class="shell-container">
+  <section class="error-page surface surface--padded animate-in" aria-labelledby="error-title">
+    <p class="error-page__code" aria-hidden="true">404</p>
+    <h1 id="error-title">Page not found</h1>
+    <p class="lead">This page doesn't exist. Check the address, or go back to the home page.</p>
+    <div class="error-page__actions">
+      <a class="btn btn-primary" href="/home">Go to home</a>
+      <a class="btn btn-outline" href="/about">About BearSummarizer</a>
+    </div>
+  </section>
+</div>
 {% endblock %}

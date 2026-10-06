@@ -7,15 +7,14 @@ if (urls.indexOf(window.location.hostname) < 0) {
     document.getElementsByTagName('body')[0].removeAttribute('hidden');
 }
 
-// When the user clicks on the button, scroll to the top of the document
-function topFunction() {
-    window.scrollTo({top: 0, behavior: 'smooth'});
-}
-
-//removes error message
+//removes error message, then returns focus to the page content
 function removeMessage() {
     let msg = document.querySelector(".msg-container")
     msg.parentElement.removeChild(msg);
+    let main = document.getElementById("main-content");
+    if (main) {
+        main.focus({preventScroll: true});
+    }
 }
 
 //confirm logout
@@ -32,13 +31,17 @@ function clearConfirm() {
     }
 }
 
-//"scroll to top" button appear/disappear
-addEventListener('scroll', (event) => {
-    if (window.scrollY <= 0) {
-        let btn = document.getElementById('goToTopBtn');
-        btn.setAttribute('hidden','')
-    } else if (window.scrollY >= document.body.scrollHeight - window.innerHeight) {
-        let btn = document.getElementById('goToTopBtn');
-        btn.removeAttribute('hidden')
+//Escape closes the open mobile menu and returns focus to its toggle
+addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape' || !window.bootstrap) {
+        return;
+    }
+    let menu = document.getElementById('siteNav');
+    if (menu && menu.classList.contains('show')) {
+        bootstrap.Collapse.getOrCreateInstance(menu, {toggle: false}).hide();
+        let toggle = document.querySelector('[data-bs-target="#siteNav"]');
+        if (toggle) {
+            toggle.focus();
+        }
     }
 });

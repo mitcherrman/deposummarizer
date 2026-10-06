@@ -1,0 +1,154 @@
+/*  ──────────────────────────────────────────────────────────────────
+    BearSummarizer design tokens (BEAR-V2-B1)
+
+    Single source of truth for color, type, spacing, radius, elevation,
+    motion and layout. Component CSS should reference these tokens rather
+    than introduce raw values.
+    ────────────────────────────────────────────────────────────────── */
+:root {
+  /* ── Palette (raw) ─────────────────────────────────────────────── */
+  --navy-950: #0b1b33;
+  --navy-900: #10264a;
+  --navy-800: #1a3561;
+  --navy-700: #284a7e;
+  --navy-200: #c7d2e4;
+  --navy-100: #e7ecf4;
+  --navy-50:  #f2f5fa;
+
+  --gold-500: #d9a23a;
+  --gold-600: #c08a24;
+  --gold-700: #9a6b0c;
+  --gold-100: #f8ecd2;
+
+  --neutral-0:   #ffffff;
+  --neutral-50:  #faf9f6;
+  --neutral-100: #f6f4ef;
+  --neutral-150: #efece5;
+  --neutral-200: #e3dfd5;
+  --neutral-300: #cdc7b9;
+
+  /* ── Semantic colors ───────────────────────────────────────────── */
+  --color-bg:               var(--neutral-100);  /* warm document background */
+  --color-surface:          var(--neutral-0);
+  --color-surface-subtle:   var(--neutral-50);
+  --color-surface-sunken:   var(--neutral-150);
+  --color-surface-elevated: var(--neutral-0);
+
+  --color-text:             #152034;
+  --color-text-secondary:   #3c4759;
+  --color-text-muted:       #5d6878;
+  --color-text-inverse:     #ffffff;
+
+  --color-border:           var(--neutral-200);
+  --color-border-strong:    var(--neutral-300);
+  --color-border-control:   #8f897b;             /* >= 3:1 on surface (inputs) */
+
+  --color-brand:            var(--navy-900);
+  --color-brand-hover:      var(--navy-800);
+  --color-brand-active:     var(--navy-950);
+  --color-brand-soft:       var(--navy-50);
+  --color-brand-tint:       var(--navy-100);
+
+  --color-accent:           var(--gold-500);
+  --color-accent-hover:     var(--gold-600);
+  --color-accent-strong:    var(--gold-700);     /* gold that passes 4.5:1 as text */
+  --color-accent-soft:      var(--gold-100);
+
+  --color-success:          #1e7a4c;
+  --color-success-soft:     #e8f4ee;
+  --color-success-border:   #b9dcc8;
+  --color-warning:          #8a5a00;
+  --color-warning-soft:     #fdf4e1;
+  --color-warning-border:   #f0d79f;
+  --color-error:            #b3261e;
+  --color-error-hover:      #8f1e18;
+  --color-error-soft:       #fcecea;
+  --color-error-border:     #f2c4bf;
+
+  --color-focus:            var(--gold-700);     /* >= 3:1 on bg and surface */
+
+  /* ── Typography ────────────────────────────────────────────────── */
+  --font-body: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue",
+               "Noto Sans", Arial, sans-serif;
+  --font-display: "Segoe UI Variable Display", system-ui, -apple-system,
+                  "Segoe UI", Roboto, "Helvetica Neue", "Noto Sans", Arial, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", "Segoe UI Mono", Consolas,
+               "Liberation Mono", monospace;
+
+  --text-xs:   0.75rem;
+  --text-sm:   0.875rem;
+  --text-base: 1rem;
+  --text-md:   1.125rem;
+  --text-lg:   1.25rem;
+  --text-xl:   clamp(1.375rem, 1.2rem + 0.6vw, 1.625rem);
+  --text-2xl:  clamp(1.625rem, 1.35rem + 1.2vw, 2.125rem);
+  --text-3xl:  clamp(1.875rem, 1.45rem + 1.9vw, 2.625rem);
+
+  --leading-tight:  1.2;
+  --leading-snug:   1.35;
+  --leading-normal: 1.6;
+
+  --weight-regular:  400;
+  --weight-medium:   500;
+  --weight-semibold: 600;
+  --weight-bold:     700;
+
+  --tracking-tight: -0.015em;
+  --tracking-wide:  0.08em;
+
+  /* ── Spacing scale ─────────────────────────────────────────────── */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  /* ── Radius ────────────────────────────────────────────────────── */
+  --radius-sm:   6px;
+  --radius-md:   10px;
+  --radius-lg:   16px;
+  --radius-pill: 999px;
+
+  /* ── Elevation (restrained, navy-tinted) ───────────────────────── */
+  --shadow-sm: 0 1px 2px rgba(16, 38, 74, 0.06);
+  --shadow-md: 0 1px 2px rgba(16, 38, 74, 0.05), 0 4px 14px rgba(16, 38, 74, 0.06);
+  --shadow-lg: 0 2px 4px rgba(16, 38, 74, 0.04), 0 14px 36px rgba(16, 38, 74, 0.09);
+
+  /* ── Motion ────────────────────────────────────────────────────── */
+  --motion-fast:     120ms;
+  --motion-standard: 200ms;
+  --motion-slow:     280ms;
+  --ease-standard:   cubic-bezier(0.2, 0, 0, 1);
+  --ease-out:        cubic-bezier(0, 0, 0.2, 1);
+
+  /* ── Layout ────────────────────────────────────────────────────── */
+  --layout-max:        72rem;   /* 1152px */
+  --layout-prose:      44rem;
+  --layout-narrow:     26rem;   /* auth card */
+  --gutter:            1rem;    /* 16px on phones, widened below */
+  --header-height:     4rem;
+  --tap-target:        2.75rem; /* 44px */
+  --focus-ring-width:  2px;
+  --focus-ring-offset: 2px;
+
+  /* ── Legacy aliases ────────────────────────────────────────────
+     home.css and output.css (owned by B2/B3) still reference the old
+     Cal-Berkeley names. Remove these once those files are migrated. */
+  --cal-blue:      var(--color-brand);
+  --cal-gold:      var(--color-accent);
+  --cal-gold-dark: var(--color-accent-hover);
+  --cal-offwhite:  var(--color-bg);
+  --cal-gray:      var(--color-border);
+  --cal-shadow:    rgba(16, 38, 74, 0.12);
+}
+
+@media (min-width: 768px) {
+  :root { --gutter: 1.5rem; }
+}
+
+@media (min-width: 1280px) {
+  :root { --gutter: 2rem; }
+}

@@ -1,0 +1,16 @@
+{% comment %}
+  Global notice for the existing `msg` context value (?msg=…).
+  `.msg-container` and removeMessage() are the hooks base.js relies on.
+{% endcomment %}
+<div class="msg-container notice" role="alert">
+  <svg class="notice__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+    <circle cx="12" cy="12" r="9"/>
+    <path d="M12 7.5v5.5M12 16.5h.01"/>
+  </svg>
+  <p class="msg-text notice__text">{{ msg }}</p>
+  <button type="button" class="msg-close-button icon-button notice__close" onclick="removeMessage()" aria-label="Dismiss message">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true" focusable="false">
+      <path d="M6 6l12 12M18 6L6 18"/>
+    </svg>
+  </button>
+</div>
