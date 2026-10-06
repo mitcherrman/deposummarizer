@@ -352,7 +352,15 @@ def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords
         # optional chatbot DB
         try:
             update_status_msg(sid, "Configuring chatbot…", job_id)
-            cb.initBot(raw_text, sid)
+            # guard runs inside the chatbot's db_lock, before the collection is replaced
+            indexed = cb.initBot(raw_text, sid, still_current=lambda: not race_check(sid, job_id))
+            if indexed is not None and job_id is not None:
+                # chat_job_id proves this job's own index was built while it was current
+                with session_lock:
+                    s = current_job_session(sid, job_id)
+                    if s is not None:
+                        s["chat_job_id"] = job_id
+                        s.save()
         except Exception as e:
             logging.warning(f"[{sid}] chatbot DB skipped: {e}")
         if race_check(sid, job_id):

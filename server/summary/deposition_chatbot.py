@@ -18,7 +18,12 @@ embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPE
 #thread locks
 db_lock = Lock() #used to access chroma database
 
-def initBot(fullText, id):
+def initBot(fullText, id, still_current=None):
+    """
+    Rebuilds collection_<id> from fullText. still_current (optional) is checked
+    inside db_lock right before the collection is replaced; if it returns False
+    the caller's job is stale and nothing is touched (returns None).
+    """
     print(f"[{id}]: Document length = {len(fullText)} characters")
     print(f"[{id}]: Setting up model context...")
     
@@ -29,6 +34,9 @@ def initBot(fullText, id):
     #set up chroma with PostgreSQL backend
     collection_name = f"collection_{id}"
     with db_lock:
+        if still_current is not None and not still_current():
+            print(f"[{id}]: Stale job, collection left untouched.")
+            return None
         vector_store = PGVectorEncrypt(
             key=util.get_encryption_key(),
             connection=util.get_db_sqlalchemy_url(),

@@ -41,7 +41,7 @@ JOB_STALL_SECONDS = 15 * 60
 # session keys describing the current job; removed when a job is cancelled.
 # job_id is the upload's opaque token: a worker may only write to the session
 # while session["job_id"] is still its own (see summarizer.current_job_session)
-JOB_KEYS = ("db_len", "status_msg", "job_started", "status_at", "job_id")
+JOB_KEYS = ("db_len", "status_msg", "job_started", "status_at", "job_id", "chat_job_id")
 
 def job_status(session):
     """
@@ -222,6 +222,11 @@ def ask(request: HttpRequest):
     if (not s.get('db_len')) or s['db_len'] <= 0:
         return HttpResponse("No file summarized", status=409)
 
+    # token-aware summaries may only chat against their own index; sessions
+    # from before job tokens (no job_id) keep the old behavior
+    if s.get('job_id') and s.get('chat_job_id') != s['job_id']:
+        return HttpResponse("Chat isn't available for this summary. Upload the PDF again to use chat.", status=409)
+
     response = askQuestion(data['question'], sid, s['prompt_append'], s['db_len'])
     if response is None:
         return HttpResponseServerError("OpenAI call failed, please try again later.")
@@ -283,7 +288,7 @@ def clear(request: HttpRequest):
         with session_lock:
             for key in [
                 "summary_pdf", "status_msg", "db_len",
-                "job_started", "status_at", "job_id",
+                "job_started", "status_at", "job_id", "chat_job_id",
                 "num_docs", "chat_history", "prompt_append",
                 "depo_pdf",
             ]:

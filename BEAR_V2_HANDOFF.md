@@ -842,7 +842,7 @@ Heartbeat: `summarizer.update_status_msg` also writes `status_at = int(time.time
 - **Stalled recovery:** after 15 minutes without a heartbeat, home and output show the stalled state with **Cancel and start over**, which is the existing Clear data (`POST /clear`, confirm dialog). Nothing is cancelled automatically. Clear now also pops `job_started`/`status_at`/`job_id` and still pops `depo_pdf`.
 - **Sign-in mid-job (S4) fixed:** `auth` and `create_account` call `_cancel_running_job()` before `login()` (which cycles the key). If a job was running, the job keys and `depo_pdf` are dropped and the user lands on `/home?msg=Signing in cancelled the summary that was in progress. Please upload your PDF again.` The new session is immediately usable. The old worker already aborted at its next `race_check` (its session row is deleted by `cycle_key`). Signing in without a job is unchanged.
 - **Cancellation contract unchanged:** Clear, logout and expiry still make `race_check` abort the worker. Each job is now also isolated by its token (B2.6a).
-- **Known limits (documented, not changed):** a cancelled job may leave its partial `collection_<old sid>` until the hourly sweep (PGVector lifecycle → B6). For Clear + re-upload the session id is unchanged, so a woken old worker that was mid-`initBot` can still rebuild `collection_<sid>` (it rebuilds with `pre_delete_collection`, and the new job rebuilds it again when it reaches that step). Its **session** writes are all refused by the token rule; the vector index is outside B2's scope. The 15-minute threshold is a constant (`views.JOB_STALL_SECONDS`). A single LLM call can in theory hang longer (default client timeouts), in which case the UI will call a live job stalled. It never kills it. The lock is process-local (S15): token checks protect against stale workers in any process, but the check-and-write atomicity relies on `session_lock` within one process.
+- **Known limits (documented, not changed):** a cancelled job may leave its partial `collection_<old sid>` until the hourly sweep (PGVector lifecycle → B6). The shared `collection_<sid>` race is closed by B2.6b. The 15-minute threshold is a constant (`views.JOB_STALL_SECONDS`). A single LLM call can in theory hang longer (default client timeouts), in which case the UI will call a live job stalled. It never kills it. The lock is process-local (S15): token checks protect against stale workers in any process, but the check-and-write atomicity relies on `session_lock` within one process.
 - **Pre-existing, unchanged:** the worker's `num_docs` increment only runs when `db_len` is still `-1` after `create_summary` returns. Because `create_summary` already writes the final `db_len`, it effectively never runs. It is kept as it was, now behind the token check.
 
 ### B2.6a Job-token isolation (B2 correction)
@@ -862,9 +862,37 @@ Before this correction a worker identified its job only by **session id + `db_le
 - **Lock discipline:** worker check-and-write pairs run under `session_lock` (as before). Clear and the sign-in cancel now pop the job keys **and save under `session_lock`**, and `summarize` already stored the new token under it, so a worker cannot pass its token check and then write after the cancel or switch.
 - **Compatibility:** `job_id` defaults to `None` on every helper. Callers that pass no token (the B0.5 page-identity tests) match a session with no token, so behavior there is identical. No timestamps, thread identity or key cycling are used for isolation. The B2 UI, form contract, `/out/verify` contract, stalled UI, sign-in cancellation and Clear are unchanged.
 
+### B2.6b Chatbot index isolation (final B2 correction)
+
+`collection_<sid>` is shared by every job in a session, and `initBot` replaces it (`pre_delete_collection=True`). The B2.6a session tokens did not cover it. Two failures were reproduced on `3baef1d` with an in-memory fake `PGVectorEncrypt`:
+- A stale job A that passed its token check, then paused before `db_lock` while the user cleared and job B indexed, rebuilt the collection with document A (MKR01–03 replaced MKR11–12).
+- When B's indexing failed, B still completed and `/ask` returned 200 against A's old collection.
+
+**In-lock guard:** `initBot(full_text, sid, still_current=None)`. The first statement inside `with db_lock:` is `if still_current is not None and not still_current(): return None`. On a stale job, no `PGVectorEncrypt` is constructed, nothing is deleted and nothing is added. `create_summary` passes `still_current=lambda: not race_check(sid, job_id)`, so the chatbot module needs no session or job logic and has no import of the summarizer. Ordering:
+- if B indexes first, a woken A takes the lock later, fails the guard and does nothing;
+- if A took the lock while still current, B's later indexing necessarily runs after A (same lock) and replaces A's data.
+
+**`chat_job_id` policy:**
+- It is set to `job_id` only when `initBot` returned a result (indexing succeeded) **and** the job is still current: written under `session_lock` through `current_job_session`.
+- It is in `JOB_KEYS`, so it is removed by every new upload (before the new `job_id` is stored), by Clear (including Cancel and start over), and by sign-in cancellation. Logout and expiry drop the whole session.
+- `/ask`: if the session has a `job_id` and `chat_job_id != job_id`, it returns `409` "Chat isn't available for this summary. Upload the PDF again to use chat." without calling `askQuestion` (no vector query). The existing chat UI shows it as an error bubble.
+- **Legacy rule:** a session with **no** `job_id` (a summary made before B2) keeps the old behavior (`db_len > 0` → chat). There is no migration.
+- If chatbot initialization fails, the summary still completes as before, `chat_job_id` stays unset and chat is unavailable for that summary.
+- Neither token appears in `/out/verify`, `/home`, `/output`, `/chat` or JS.
+
+**Final B2 invariant** (modern token-aware jobs):
+- session output writes require a matching `job_id`;
+- vector collection replacement requires the job to still be current **while holding `db_lock`**;
+- chat is enabled only if `chat_job_id` proves the active summary's own vector initialization succeeded.
+
+**Remaining vector lifecycle debt (B6, unchanged):**
+- Clear still does not physically delete `collection_<sid>`; it is only made unreachable for modern jobs by `chat_job_id`.
+- Session/vector cleanup (hourly `trim()` bug S2, double encryption on key cycle S3, orphan collections after sign-in) remains B6.
+- `db_lock` and `session_lock` are process-local: with multiple gunicorn workers the in-lock ordering only holds within one process (S15). The tokens still prevent a stale job from *enabling* chat across processes.
+
 ### B2.7 Tests
 
-`python manage.py test`: **96 tests, all pass**: 39 pre-B2 (unmodified), 48 in `server/tests/test_upload_processing.py`, and 9 in `server/tests/test_job_isolation.py` from the correction. The one edit to a B2 test is that its worker-argument helper now unpacks the token and asserts it equals `session["job_id"]`. `manage.py check` passes with production settings + placeholder env and with `server.test_settings`. Against the B1 code (exported with `git archive`, new test file copied in) **40 of the 48 fail**. The 8 that pass guard behavior that must not change (form values, worker args, sanitizing, sign-in without a job, status-string presence).
+`python manage.py test`: **107 tests, all pass**: 39 pre-B2 (unmodified), 48 in `server/tests/test_upload_processing.py`, 9 in `server/tests/test_job_isolation.py` (B2.6a), and 11 in `server/tests/test_chat_index_isolation.py` (B2.6b). The one edit to a B2 test is that its worker-argument helper now unpacks the token and asserts it equals `session["job_id"]`. `manage.py check` passes with production settings + placeholder env and with `server.test_settings`. Against the B1 code (exported with `git archive`, new test file copied in) **40 of the 48 fail**. The 8 that pass guard behavior that must not change (form values, worker args, sanitizing, sign-in without a job, status-string presence).
 
 `test_job_isolation.py` drives the exact race through the real views and real `create_summary` (fake LLMs only): job A starts; its first LLM call "hangs" while the test runs Clear and uploads job B; A then wakes and runs to completion. The test asserts that B's whole session is byte-for-byte unchanged (status, `status_at`, `db_len`, no `summary_pdf`, no `num_docs`), then runs B, which completes normally with only B's pages. Further tests cover:
 - A's completion and error writes refused (patched `create_summary` returning 7 / raising);
@@ -876,6 +904,19 @@ Before this correction a worker identified its job only by **session id + `db_le
 - `race_check` and `update_status_msg` token semantics.
 
 On the pre-correction commit `3162f52` the two race tests **fail** (the overwrite above), and the 4 API-level tests error because the token does not exist. The Clear-only, single-job and sign-in tests pass there as behavior guards. After the correction all 9 pass. A live run on the local harness (3-page PDF with a forced retry) still reported every stage, showed the retry notice, completed into the workspace, and `/out/verify` exposed only `X-Job-State`.
+
+`test_chat_index_isolation.py` (fake `PGVectorEncrypt` recording every construct/delete/add; no Postgres or OpenAI) covers:
+- **A:** a stale guard touches nothing;
+- the guard runs while `db_lock` is held;
+- **C:** real threads, A holds the lock mid-write, B becomes current and waits, and B's index is final;
+- **B:** through the real views/`create_summary`, A pauses before the lock while Clear + B run to completion, then A is refused, the collection is still B's, B's session is unchanged, `chat_job_id == job_id` and `/ask` works;
+- **D:** B's indexing fails, the summary is ready, there is no `chat_job_id`, and `/ask` returns 409 without querying;
+- **E:** success, then `/ask` returns 200;
+- **F/G/H:** new upload, Clear and sign-in all leave no chat marker;
+- **I:** neither token in verify/home/output/chat;
+- legacy session without `job_id` still chats.
+
+On `3baef1d` 7 of the 11 fail: the two reproductions above, plus the API-level cases (no `still_current` parameter, no `chat_job_id`).
 
 Covered: home form names/values/defaults/labels and "no other named field"; `home.js` included once, after the form, with no immediate-call listener registration, hidden `filterText` chips and a client double-submit flag; `lang` × worker, `filterType` × repeated `filterText` (order, sanitizing, exclude flag); validation before session mutation; non-PDF rejection; `job_started`; worker start deferred to `close()` and the fast-failure race; guard re-reading stored session; stalled guard message; Clear → new upload; `job_status` matrix; heartbeat; verify codes/bodies/headers (no exception text); real `create_summary` on synthetic PDFs → `no-text` / `error` / `ready`; home cards per state; output panels per state (failure = `role=alert`, no iframe, no exception text; ready hides the processing view; DOM hooks/script order); sign-in mid-job cancels cleanly; status-string drift guard; and the JS mapper run in **Node** (`mapStatus`/`mergeStatus`/`describe`; skipped if Node is absent). Node 24 was present here and the test ran.
 
@@ -903,8 +944,8 @@ Run on `127.0.0.1` with a throwaway harness **outside the repo** (`server.test_s
 
 | File | Change |
 |---|---|
-| `server/views.py` | `job_status`, `JOB_STALL_SECONDS`, `JOB_KEYS`, `_cancel_running_job`, `_looks_like_pdf`, `_StartWorkerAfterResponse`; `summarize` (validate first, PDF check, locked guard re-read, `job_started`, deferred start); `verify` (additive headers); `clear` (also pops `job_started`/`status_at`/`job_id`, saved under `session_lock`); job token (`uuid4().hex` per upload, `JOB_KEYS` includes `job_id`, worker completion/error writes via `current_job_session`, `_cancel_running_job` saves under the lock); `auth`/`create_account` via `_login_and_redirect`; `home`/`output` pass `job_state`/`job_reason`/`stall_minutes` |
-| `server/summary/summarizer.py` | `update_status_msg` writes the `status_at` heartbeat; job token: `current_job_session`, token-aware `update_status_msg`/`race_check`, `job_id` threaded through `create_summary` → extraction/summaries/retries, final write checked under the lock |
+| `server/views.py` | `job_status`, `JOB_STALL_SECONDS`, `JOB_KEYS`, `_cancel_running_job`, `_looks_like_pdf`, `_StartWorkerAfterResponse`; `summarize` (validate first, PDF check, locked guard re-read, `job_started`, deferred start); `verify` (additive headers); `clear` (also pops `job_started`/`status_at`/`job_id`, saved under `session_lock`); job token (`uuid4().hex` per upload, `JOB_KEYS` includes `job_id`, worker completion/error writes via `current_job_session`, `_cancel_running_job` saves under the lock); `JOB_KEYS`/Clear include `chat_job_id`; `/ask` requires `chat_job_id == job_id` for token-aware sessions); `auth`/`create_account` via `_login_and_redirect`; `home`/`output` pass `job_state`/`job_reason`/`stall_minutes` |
+| `server/summary/summarizer.py` | `update_status_msg` writes the `status_at` heartbeat; passes the in-lock guard to `initBot` and sets `chat_job_id` on success; job token: `current_job_session`, token-aware `update_status_msg`/`race_check`, `job_id` threaded through `create_summary` → extraction/summaries/retries, final write checked under the lock |
 | `server/templates/home.html` | redesigned upload workflow (`page` block) |
 | `server/templates/_processing.html` | **new**: processing view |
 | `server/templates/output.html` | `page` block, includes the partial; workspace markup unchanged |
@@ -915,4 +956,6 @@ Run on `127.0.0.1` with a throwaway harness **outside the repo** (`server.test_s
 | `server/static/styles/processing.css` | **new** |
 | `server/tests/test_upload_processing.py` | **new**: 48 tests (worker-args helper also checks the token) |
 | `server/tests/test_job_isolation.py` | **new** (correction): 9 job-token race/regression tests |
+| `server/summary/deposition_chatbot.py` | `initBot(..., still_current=None)`: guard checked inside `db_lock` before any collection change |
+| `server/tests/test_chat_index_isolation.py` | **new** (final correction): 11 index-race / chat-marker tests |
 | `BEAR_V2_HANDOFF.md` | this addendum |
