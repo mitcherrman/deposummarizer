@@ -128,21 +128,12 @@
   --layout-max:        72rem;   /* 1152px */
   --layout-prose:      44rem;
   --layout-narrow:     26rem;   /* auth card */
+  --layout-wide:       90rem;   /* 1440px: completed-summary workspace */
   --gutter:            1rem;    /* 16px on phones, widened below */
   --header-height:     4rem;
   --tap-target:        2.75rem; /* 44px */
   --focus-ring-width:  2px;
   --focus-ring-offset: 2px;
-
-  /* ── Legacy aliases ────────────────────────────────────────────
-     home.css and output.css (owned by B2/B3) still reference the old
-     Cal-Berkeley names. Remove these once those files are migrated. */
-  --cal-blue:      var(--color-brand);
-  --cal-gold:      var(--color-accent);
-  --cal-gold-dark: var(--color-accent-hover);
-  --cal-offwhite:  var(--color-bg);
-  --cal-gray:      var(--color-border);
-  --cal-shadow:    rgba(16, 38, 74, 0.12);
 }
 
 @media (min-width: 768px) {

@@ -12,8 +12,7 @@
       3. Application shell (skip link, header, navigation, footer)
       4. Notices (the `msg` banner)
       5. Shared controls (buttons, inputs, segmented control, surfaces)
-      6. Transitional legacy panel (home/output until B2/B3)
-      7. Motion + reduced motion
+      6. Motion + reduced motion
     ────────────────────────────────────────────────────────────────── */
 
 /* 1. BOOTSTRAP THEMING ─────────────────────────────────────────────── */
@@ -592,19 +591,6 @@ img, svg { max-width: 100%; }
 .icon-button:hover { background: var(--color-brand-soft); color: var(--color-brand); }
 .icon-button svg { width: 1.125rem; height: 1.125rem; }
 
-/* Legacy "Clear data" control (home/output) re-expressed with tokens. */
-.clear-button {
-  margin-top: 0.3em;
-  margin-right: 10px;
-  padding: 4px 10px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: var(--color-error);
-  color: var(--color-text-inverse);
-  font-weight: var(--weight-semibold);
-}
-.clear-button:hover { background: var(--color-error-hover); color: var(--color-text-inverse); }
-
 /* Labels and inputs */
 .form-label,
 .field__label {
@@ -716,18 +702,7 @@ img, svg { max-width: 100%; }
   .surface--padded { padding: var(--space-6); }
 }
 
-/* 6. TRANSITIONAL LEGACY PANEL ────────────────────────────────────────
-   Pages that only fill {% block content %} (home, output) are framed in
-   this panel until B2/B3 give them their own composition. */
-.legacy-panel {
-  padding: var(--space-5) var(--space-4);
-}
-@media (min-width: 768px) {
-  .legacy-panel { padding: var(--space-6); }
-}
-.legacy-panel > h1:first-of-type { font-size: var(--text-2xl); margin-bottom: var(--space-5); }
-
-/* 7. MOTION ────────────────────────────────────────────────────────── */
+/* 6. MOTION ────────────────────────────────────────────────────────── */
 @keyframes surface-in {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: none; }

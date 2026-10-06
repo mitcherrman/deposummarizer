@@ -68,6 +68,20 @@ def job_status(session):
         return "failed", "error"
     return "none", None
 
+def chat_available(session) -> bool:
+    """
+    Whether /ask would query the chatbot index for this session: a finished
+    summary (db_len > 0) and, for token-aware jobs, chat_job_id proving the
+    active job built its own index. Mirrors the checks in ask(); used only
+    to present the chat panel, never to authorize a question.
+    """
+    db_len = session.get("db_len")
+    if not isinstance(db_len, int) or db_len <= 0:
+        return False
+    if session.get("job_id") and session.get("chat_job_id") != session["job_id"]:
+        return False
+    return True
+
 def _cancel_running_job(session) -> bool:
     """
     Drop an in-flight job (and its token) from the session; its worker aborts
@@ -462,10 +476,23 @@ def contact(request: HttpRequest):
         return HttpResponseNotAllowed(['GET'])
     return render(request, "contact.html")
 
+SUMMARY_LANG_LABELS = {"en": "English", "es": "Spanish", "both": "English and Spanish"}
+
 def output(request: HttpRequest):
     if request.method != 'GET':
         return HttpResponseNotAllowed(['GET'])
-    return render(request, "output.html", _job_context(request))
+    context = _job_context(request)
+    if context["job_state"] == "ready":
+        # completed-summary workspace; job tokens never reach the template
+        s = request.session
+        db_len = s.get("db_len")
+        context.update(
+            chat_state="ready" if chat_available(s) else "unavailable",
+            summary_pages=db_len if isinstance(db_len, int) and db_len > 0 else None,
+            summary_lang_label=SUMMARY_LANG_LABELS.get(s.get("summary_lang")),
+            has_chat_history=bool(s.get("prompt_append")),
+        )
+    return render(request, "output.html", context)
 
 def login_page(request: HttpRequest):
     if request.method != 'GET':

@@ -1,1 +1,1 @@
-<p class="chat-messages-bubble {% if outgoing %}chat-messages-out{% else %}chat-messages-in{% endif %}">{{ message }}</p>
+<div class="chat-msg {% if outgoing %}chat-msg--user{% else %}chat-msg--bear{% endif %}"><p class="chat-msg__who">{% if outgoing %}You{% else %}Bear{% endif %}</p><p class="chat-msg__text">{{ message }}</p></div>

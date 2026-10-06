@@ -194,6 +194,13 @@ if (typeof document !== "undefined") (function () {
     if (heading) heading.focus();
   }
 
+  //a job that finishes while this page is open: reload so the server renders
+  //the completed workspace (chat availability, page count, chat history),
+  //which then opens through insertIframe() like any ready page (B3)
+  function openCompletedWorkspace() {
+    window.location.replace(window.location.pathname);
+  }
+
   //hands over to the summary workspace (output.js)
   function showWorkspace() {
     var hadFocus = root.contains(document.activeElement);
@@ -205,7 +212,7 @@ if (typeof document !== "undefined") (function () {
     if (state === "ready") {
       view = {stage: "finished"};
       render();
-      setTimeout(showWorkspace, reducedMotion ? 0 : 700);
+      setTimeout(openCompletedWorkspace, reducedMotion ? 0 : 700);
     } else if (state === "failed") {
       showPanel("failed", reason);
     } else if (state === "none") {

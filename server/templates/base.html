@@ -71,13 +71,12 @@
         {% comment %}
           Pages that own their composition override `page` and place the
           notice themselves ({% include "_notice.html" %} when msg is set).
-          Legacy pages only fill `content` and get the transitional panel
-          until B2 (home) and B3 (output) replace it.
+          A page that only fills `content` gets a plain padded surface.
         {% endcomment %}
         {% block page %}
         <div class="shell-container">
           {% if msg %}<div class="notice-region">{% include "_notice.html" %}</div>{% endif %}
-          <div class="surface legacy-panel">
+          <div class="surface surface--padded">
             {% block content %}{% endblock %}
           </div>
         </div>

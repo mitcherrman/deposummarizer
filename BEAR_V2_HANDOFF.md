@@ -959,3 +959,186 @@ Run on `127.0.0.1` with a throwaway harness **outside the repo** (`server.test_s
 | `server/summary/deposition_chatbot.py` | `initBot(..., still_current=None)`: guard checked inside `db_lock` before any collection change |
 | `server/tests/test_chat_index_isolation.py` | **new** (final correction): 11 index-race / chat-marker tests |
 | `BEAR_V2_HANDOFF.md` | this addendum |
+
+---
+
+## B3 addendum — completed-summary workspace
+
+Workstream: `BEAR-V2-B3 — completed-summary workspace`. Branch: `bearv2/b3-output-workspace`, based on the certified B2 commit `f407907c41ee6fd4f205e7a3c3ee90bb88450e0a` (not on `main`). Scope: what `/output` shows once a summary is ready. No LLM, prompt, temperature, extraction, page-identity, summary-structure, RAG/retrieval, chunking, embedding, collection-naming, PGVector-cleanup, encryption, ReportLab/PDF-design, DOCX-generation, AWS or dependency change. No new product capability.
+
+### B3.1 Existing behavior documented before the change
+
+- **History:** on `window.onload`, `output.js` `init()` → `includeChat()` → `fetch("chat")`. `/chat` returns **server-rendered, autoescaped** HTML (one `chat_message.html` per `prompt_append` entry), injected with `innerHTML`.
+- **Asking:** a `keydown` Enter handler (no `preventDefault`) → `submitQuestion()`: `FormData` of the form (`csrfmiddlewaretoken` + `question`), the user bubble **appended locally** (`innerText`), input disabled, `POST ask`, the answer (or the raw server error text) appended locally with `innerText`. History was **never reloaded** after a send. The transcript link was unhidden only after a successful answer in the same page view (hidden after reload even with history).
+- **Escaping:** model output was never treated as HTML (autoescape in `/chat`, `innerText` for live bubbles). B3 keeps this (see B3.6).
+
+### B3.2 Workspace architecture
+
+- `output.html` keeps the B2 structure: notice → `_processing.html` (`section#loading`) → the workspace. The workspace is `section#workspace.workspace.body-container[hidden]` with `data-view` (`summary|chat`) and `data-chat-state` (`ready|unavailable`, or `pending` when the page was rendered before the job finished).
+- **Server context** (`views.output`, ready state only): `chat_state` from the new `views.chat_available(session)` (mirrors `/ask`: `db_len > 0` and, for token-aware jobs, `chat_job_id == job_id`; presentation only, never authorization), `summary_pages` (`db_len`), `summary_lang_label` (`summary_lang` → English / Spanish / English and Spanish), `has_chat_history`. Tokens are never rendered. `/ask` itself is **unchanged**; a test asserts the helper agrees with `/ask` over a session matrix.
+- **Hand-over (B2 contract, kept and narrowed):** `insertIframe()` is still the global in `output.js` that removes `#loading` and reveals the workspace (now: once, then `loadPreview()` + `loadChat()`). `processing.js` still calls it when the page loads in the `ready` state. **Change:** when a job finishes *while the page is open*, `processing.js` shows "Summary ready" for ~0.7 s (0 under reduced motion) and then calls `location.replace(location.pathname)`, so the server renders the completed workspace (chat availability, page count, history). The no-`X-Job-State` fallback still calls `insertIframe()` directly (`pending` chat state → chat enabled and `/ask` decides, as before). Script order `output.js` → `processing.js` and exactly one `#clearForm` are unchanged. `window.onload = init` is gone; `output.js` wires everything when the script is evaluated (it runs after the markup).
+- **Retired legacy (B1/B2 hand-offs):** the `#summary-download-option` `<select>`, `changeDownloadFormat()` and its `oninput`, the "Chatbot:" header, the Enter-only chat, inline `style=""`, `.legacy-panel` (base.css; the base.html `content` fallback now uses `.surface.surface--padded`), `.clear-button`, and the `--cal-*` aliases in `tokens.css` (no stylesheet uses them any more). New token: `--layout-wide: 90rem`.
+
+### B3.3 Desktop layout (≥1024px)
+
+```
+✓ Summary ready
+Deposition summary              Download [↓ PDF] [↓ Word (.docx)]   [+ Summarize another document]
+English · Text read from 12 pages
+┌ Summary document ─────────────── [Open PDF] ┐ ┌ Ask Bear ────────────── [Transcript] ┐
+│ AI-generated summary. Verify …              │ │ Ask questions about this deposition. │
+│ ┌ PDF preview (fills the panel) ──────────┐ │ │ conversation (scrolls)               │
+│ └─────────────────────────────────────────┘ │ │ [question…                 ] [→ Ask] │
+└─────────────────────────────────────────────┘ └──────────────────────────────────────┘
+```
+
+- Grid `minmax(0,1fr) | minmax(21rem,26rem)` (28rem from 1440px), gap 24px, height `max(34rem, 100dvh − 15rem)`, so both panels and the ask form fit the viewport at 1280×800 and 1440×900. Each panel is a flex column: the PDF fills its panel and the conversation scrolls inside its own region.
+- While the workspace is visible, `.site-shell:has(.workspace:not([hidden])) .shell-container` widens the shell (header, main, footer) to 1440px. Header and workspace stay aligned, and the PDF gets real width (904px at 1600). Browsers without `:has()` keep the 1152px shell, which is still a working layout.
+- "Text read from N pages" is `db_len` (pages that passed extraction). It deliberately does **not** say "pages summarized", because keyword-valid short pages are extracted but not summarized (B0.5.2). The header shows nothing else: no scores, counts or time claims.
+
+### B3.4 Mobile / tablet layout (<1024px)
+
+- The header stacks: status chip, H1, meta; then `Download [PDF] [Word]` (equal width, `.docx` hidden below 420px); then a full-width quiet **Summarize another document**.
+- **Summary / Ask Bear switch:** two `type="button"` buttons with `aria-pressed` + `aria-controls` in a `role="group"`. There are no tab roles and no roving focus. One panel is shown at a time (`.workspace[data-view]` CSS).
+  - The switch is **sticky** under the site header when the viewport is at least 32rem tall.
+  - Switching parks the chosen panel at the top of the screen. The scroll is instant, because Bootstrap sets smooth scrolling.
+  - The first switch to Ask Bear scrolls the history to the newest message.
+- PDF frame height is `clamp(16rem, 100dvh − 8rem, 60rem)`, at full panel width (never beside a sidebar). Conversation `max-height` is `clamp(12rem, 100dvh − 21rem, 40rem)`, so at 390×844 the whole chat panel, including the ask form, fits below the sticky switch.
+- **Short (landscape) screens** (≤32rem tall): the switch isn't sticky, so the panel itself is parked under the header; the chat subtitle is hidden and heights tighten. At 844×390 the textarea row stays on screen.
+- Touch: every workspace button is ≥44px. Panel-head small buttons grow to 44px on coarse pointers, and the textarea overrides Bootstrap's `textarea.form-control` min-height. The "Enter to send" hint is hidden on coarse pointers; `enterkeyhint="send"`.
+
+### B3.5 PDF framing and downloads
+
+- **Preview:** `#docFrame[data-preview-src="/out/pdf"]`. `loadPreview()` first probes `HEAD /out/pdf` (existing contract). It then inserts a borderless `iframe` (`title="Summary PDF preview"`, `src="/out/pdf#navpanes=0&view=FitH"`). The hash values are viewer hints only; without them Chrome opens with a thumbnail sidebar. States:
+  - **loading:** page-outline motif; the iframe stays transparent until `load`, with a 10 s safety reveal;
+  - **unsupported:** `navigator.pdfViewerEnabled === false` (e.g. Android Chrome, which would otherwise auto-download the file) → "Preview isn't available in this browser" + Open PDF / Download PDF;
+  - **error:** the probe or network fails → `role="alert"` + **Try again** + Open PDF.
+
+  On phones the fallback frames shrink to 18rem. **Open PDF** (new tab) is always in the panel head; on iOS the inline viewer shows only the first page, so this is the full-document path there. `/out` → `/out/pdf` and the PDF itself are unchanged.
+- **Downloads:** two real links (`href="out/pdf"` / `href="out/docx"`, `download`, `data-download`). With JS, a click:
+  - fetches the file and saves it as a blob under the server's `Content-Disposition` filename;
+  - shows a spinner, `aria-disabled` and "Preparing the Word document…" in a polite status line;
+  - **ignores further clicks of that type while one is in flight**, so there is no duplicate pdf2docx conversion;
+  - on a failed response shows "The Word document couldn't be prepared. Please try again, or download the PDF." instead of saving an error page as `.docx`.
+
+  Without `fetch`/`createObjectURL` the links work natively. The DOCX endpoint and its B0.5 `convert()`/`close()` lifecycle are untouched.
+
+### B3.6 Chat
+
+- **Unchanged contracts:** `GET chat` (history fragment, still fetched when the workspace opens); `POST ask` with `FormData(form)` (`csrfmiddlewaretoken` + `question`; the question is sent trimmed); plain-text answers; `prompt_append` semantics; retrieval, prompts and models. No streaming, websockets or citations.
+- **Messages:** `chat_message.html` now renders `div.chat-msg.chat-msg--user|--bear` with a visible speaker label ("You" / "Bear") and `p.chat-msg__text`, still autoescaped. Live messages are built with `textContent`. A test asserts that the only `innerHTML` writes in `output.js` are the server-escaped `/chat` fragment and three static dot spans, and that there is no `innerText`. `white-space: pre-wrap` + `overflow-wrap: anywhere` keep quotes, line breaks and long unbroken strings readable; messages cap at `min(90%, 36rem)`. User messages: right-aligned, navy tint. Bear: left, white with a gold rule. Errors: soft red.
+- **Ask form:** labelled, auto-growing `textarea#question` (visually hidden label "Question about this deposition") and an **Ask** submit button.
+  - An explicit `submit` handler with `preventDefault` fixes the B0 keydown quirk. Enter sends; Shift+Enter adds a newline; IME composition is respected.
+  - An empty question shows the inline error "Type a question first." (`aria-invalid`, focus stays).
+  - While waiting: `aria-busy` on the form, `aria-disabled` + spinner on the button, a hidden "Reading the transcript…" bubble, and a polite status "Bear is answering…". A second submit only announces "Bear is still answering your last question." The field stays editable.
+  - On phones the field blurs after sending so the keyboard closes.
+- **Errors** are mapped by status code; server text is never shown:
+  - 500 and other codes → "Bear couldn't answer that right now. Please try again in a moment.";
+  - network failure → "Couldn't reach BearSummarizer…";
+  - 403 → reload message;
+  - 400 → "Type a question first.".
+
+  The question is restored into the field for a one-key retry, and focus returns to it (fine pointers).
+- **History / empty / transcript:** an empty state explains what to ask and that answers are AI-generated from passages and should be checked against the source. **Transcript** (`href="transcript" download`, contents and filename unchanged) is visible on load whenever history exists, and appears after the first answer.
+- **Scroll:** history loads scrolled to the end; a new answer is revealed from its first line.
+
+### B3.7 Chat unavailable (B2 token contract)
+
+- **Server-rendered** when `chat_available()` is false for the ready summary, i.e. a modern job whose index failed (no matching `chat_job_id`). The ask form and empty state are hidden, and a warning-toned panel says **"Chat isn't available for this summary"** / "Upload the PDF again to use chat. Your summary and its downloads still work." with an **Upload the PDF again** link (`/home`). Preview, PDF and DOCX stay fully usable. It is not presented as a server error, and no token is exposed.
+- **At runtime:** if `/ask` returns **409** (e.g. the summary was cleared in another tab), the panel switches to the same state, the message is announced, and focus moves to its heading (the form disappears, so focus must not be lost). Messages already in the conversation stay visible.
+- Legacy summaries without `job_id` keep chat (unchanged B2 rule).
+
+### B3.8 Clear / start over
+
+`form#clearForm` (POST `/clear`, CSRF) now sits in the workspace header with one `type="button"` **Summarize another document** button (`.btn-quiet`, `onclick="clearConfirm()"`, existing confirm text). `/output` has exactly one `#clearForm` in every state, and the B2 stalled **Cancel and start over** still submits it. Clear behavior is unchanged (no PGVector deletion).
+
+### B3.9 Accessibility
+
+- **Headings:** one visible H1 ("Deposition summary", the workspace's `aria-labelledby`); H2 "Summary document" / "Ask Bear"; H3 for the fallback and unavailable panels.
+- **Downloads:** `role="group"` labelled "Download"; the links say PDF / Word, with hidden "summary" and visible ".docx".
+- **Live regions:** the conversation is `role="log"` (`aria-busy` while history loads); separate polite status regions for chat and downloads; the preview error is `role="alert"`.
+- **Focus:** kept in the field after sending (desktop), returned to it after errors, moved to the unavailable heading on 409. Every control shows the B1 gold `:focus-visible` ring (checked with a real Tab).
+- **Reduced motion:** the spinner, dots and page-outline shimmer stop under the global B1 rule; nothing depends on animation.
+
+### B3.10 Tests
+
+`python manage.py test`: **141 tests, all pass** (the 107 pre-B3 tests, unmodified, plus 34 in `server/tests/test_output_workspace.py`). `manage.py check` passes with `server.test_settings` and with production settings + placeholder env. Against the B2 code (`git archive f407907`, new file copied in, outside git), **29 fail and 6 error**. The 5 that pass there guard behavior that must not change: URL → view routing, PDF/DOCX downloads with real pdf2docx, the `HEAD /out/pdf` probe, the empty history fragment, and the transcript format.
+
+Covered:
+- **Ready workspace:** single H1 and the two H2s, chat state, processing view hidden.
+- **Header:** facts only (language labels, page-count wording including the singular, no invented metrics); AI note.
+- **Preview:** target `/out/pdf`, fallback states, no pre-rendered iframe.
+- **Downloads:** links, types, status region.
+- **Legacy controls absent:** `<select>`, `changeDownloadFormat`, `oninput`, `style=`, `legacy-panel`, `clear-button`, "Chatbot:".
+- **Clear:** exactly one Clear form, presented as start-over.
+- **Chat form contract:** only `csrfmiddlewaretoken` + `question`, labelled textarea, submit button, status/error wiring.
+- **Regions:** log, empty and unavailable regions; transcript visibility follows history.
+- **View switch semantics:** `aria-pressed`/`aria-controls`, no tab roles.
+- **B2 compatibility:** script order and hooks; no tokens in the page.
+- **Chat availability:** failed index, mismatched marker, legacy session still chats; `chat_available` ⇔ `/ask` parity matrix; the 409 text the page uses equals the server's.
+- **Processing states:** running, failed and none never show the workspace or an iframe.
+- **Endpoints:** routing, PDF/DOCX (real conversion), probe, history fragment speakers + escaping, transcript format.
+- **JS contracts:** `insertIframe` global, ready-reload in `processing.js`, explicit submit, FormData, no model text parsed as HTML.
+- **JS helpers in Node:** `chatErrorFor`, `normalizeQuestion`, `filenameFrom`, download names. Skipped only if Node is absent; Node 24 was present.
+- **Responsive architecture:** one panel below 1024px, grid from 1024px, no fixed px sidebar widths, no `--cal-*`, no `.legacy-panel`.
+
+### B3.11 Browser verification (local only)
+
+**Harness** (throwaway, **outside the repo**, in the scratch dir):
+- settings: `server.test_settings` (placeholder key, LocMem sessions), plus the fixtures dir as an extra static dir;
+- real views and the real `create_summary`, with the fake summary/translator LLMs (0.4 s/page);
+- `initBot` replaced by a 1 s fake that **fails when the text contains `NOINDEX`** (the chat-unavailable fixture);
+- `views.askQuestion` replaced by a 1.5 s fake: a normal answer with a quote; a long answer with a newline, literal `<b>`/`<script>` and a 120-char unbroken URL; and `None` → 500 for questions containing "fail";
+- synthetic PDFs from `server/tests/fixtures.py` (12-page chat-ready, 3-page NOINDEX), placed into the real file input via `DataTransfer`.
+
+No OpenAI, AWS, Postgres or legal documents were used. Downloads were exercised end to end; the final blob-save click was intercepted in-page, so no file was written to the machine.
+
+- **Chat ready (12 pages):**
+  - Upload → B2 processing → "Summary ready" → reload into the workspace ("English · Text read from 12 pages", PDF preview loaded).
+  - Empty submit → inline error. Enter sends; pending bubble + status; Enter while busy → no request; answer appended; transcript link appears.
+  - The long/HTML answer renders literally and wraps. "fail" → error bubble, question restored, focus back in the field.
+  - Reload → history restored from `/chat` (the failed question correctly not persisted), transcript visible, `/transcript` 200 `text/plain`.
+  - PDF and DOCX saved with the correct MIME types and filenames. Three rapid DOCX clicks → **one** `GET /out/docx` in the server log. 3 sends → 3 `POST /ask`.
+- **Chat unavailable (NOINDEX):** server-rendered unavailable panel, form hidden, preview `ready`, `/out/pdf` and `/out/docx` 200. A forced ask → real **409** → unavailable state, announced, focus on its heading.
+- **Preview fallbacks:** forced probe failure → error state → Try again → `ready`; `pdfViewerEnabled=false` → unsupported card with Open/Download (no iframe).
+- **Start over:** Summarize another document → confirm (stubbed OK) → `/home`; `/out/verify` 418 `none`, `HEAD /out/pdf` 409.
+- **B2 states:** running (live), none ("No summary yet"), failed (corrupt PDF → error panel, no iframe, no exception text, one `#clearForm`). Stalled is covered by the unchanged B2 tests and was not re-driven live.
+- **Widths:** 375×812, 390×844, 844×390, 768×1024, 1100×720, 1280×800, 1440×900, 1600×900. At every width `scrollWidth == clientWidth` and no element extends past the viewport, in both views below 1024px.
+
+  | Viewport | Measured |
+  |---|---|
+  | 390×844 | after switching, the chat panel including the ask form spans 78–824px |
+  | 844×390 | switch not sticky, panel parked at 73px, textarea row on screen |
+  | 1280×800 | grid 231–791px, form on screen; doc 761px, chat 416px |
+  | 1600×900 | 1440px shell, header/workspace left edges aligned at 105px; doc 904px, chat 448px |
+
+  Touch targets are ≥44px on coarse pointers.
+- **Keyboard:** Tab from start-over → Summary switch, with the 2px gold focus ring.
+- **Tool caveats (as in B1/B2):** reduced motion couldn't be emulated. The pane renders frames only for screenshots and crops large emulated viewports, so geometry was verified by measurement. Real iOS/Android devices were not available, so `pdfViewerEnabled` behavior was simulated.
+
+### B3.12 Known debt and compatibility for B4/B5/B6
+
+- **B4:** nothing in B3 touches the summarizer. If `db_len` changes meaning, update the "Text read from N pages" wording (`views.output`) and `chat_available`. If chunk page metadata/citations are approved, the message markup has room for a source line; don't render model text as HTML.
+- **B5:** the in-app preview is still the browser's PDF viewer: dark toolbar, and the PDF title shows "(anonymous)" because the PDF has no metadata. A mobile-friendly HTML rendering of the summary needs B4's structured pages; the workspace's doc panel is the place for it. DOCX is still pdf2docx on every request, now guarded against duplicate clicks on the client side only.
+- **B6:**
+  - The transcript filename is still `deposum_chat_transcript.txt` (`views.transcript`; the header filename overrides the `download` attribute). Rename it during cleanup.
+  - Inline handlers remain (`clearConfirm()` on start-over, plus the B1/B2 ones); CSP work must remove them.
+  - Clear still doesn't delete the vector collection.
+  - The `:has()` widening degrades to the 1152px shell in older browsers.
+- **Contract for later phases:** keep `insertIframe()`, `output.js` before `processing.js`, one `#clearForm`, `#workspace[data-chat-state]`, `#chat-question` with only `question` + CSRF, `#chatMessages` fed by `/chat`, and `data-download` links pointing at `out/pdf` / `out/docx`.
+
+### B3.13 Files changed
+
+| File | Change |
+|---|---|
+| `server/templates/output.html` | completed workspace (result header, downloads, start-over, view switch, document panel with preview states, chat panel with empty/unavailable/form) |
+| `server/templates/chat_message.html` | speaker-labelled, autoescaped message markup |
+| `server/static/javascript/output.js` | rewritten: `insertIframe()` activator, preview loader + fallbacks, guarded downloads, view switch, chat (submit handler, states, errors, 409 → unavailable) |
+| `server/static/javascript/processing.js` | a job finishing on the open page reloads into the server-rendered workspace |
+| `server/static/styles/output.css` | rewritten on tokens: workspace, responsive grid, panels, chat |
+| `server/static/styles/tokens.css` | `--layout-wide`; `--cal-*` legacy aliases removed |
+| `server/static/styles/base.css` | `.legacy-panel` and `.clear-button` removed |
+| `server/templates/base.html` | `content` fallback uses `.surface.surface--padded` instead of `.legacy-panel` |
+| `server/views.py` | `chat_available()`; `output` adds `chat_state`, `summary_pages`, `summary_lang_label`, `has_chat_history` for ready summaries |
+| `server/tests/test_output_workspace.py` | **new**: 34 B3 tests |
+| `BEAR_V2_HANDOFF.md` | this addendum |
