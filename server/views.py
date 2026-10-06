@@ -53,6 +53,11 @@ def summarize(request: HttpRequest):
         request.session.save()
     sid = request.session.session_key
 
+    # 3) ------- prevent accidental double-click --------------------------------
+    # must run before the stale-key wipe below, which removes db_len
+    if request.session.get('db_len') == -1:
+        return redirect(f"{reverse(output)}?msg=Summary in progress, please wait.")
+
     # remove leftovers from an earlier run so counters start at 0
     for k in ("summary_pdf", "status_msg", "db_len",
               "num_docs", "chat_history", "prompt_append"):
@@ -69,10 +74,6 @@ def summarize(request: HttpRequest):
         for text in request.POST.getlist("filterText"):
             # Sanitize input by removing characters that aren't a-z, A-Z, 0-9, or hyphen
             filter_keywords.append(re.sub(r'[^a-zA-Z0-9- ]', '', text))
-
-    # 3) ------- prevent accidental double-click --------------------------------
-    if request.session.get('db_len') == -1:
-        return redirect(f"{reverse(output)}?msg=Summary in progress, please wait.")
 
     # 4) ------- stash file & flags in session ---------------------------------
     pdf_bytes = request.FILES['file'].read()
@@ -191,7 +192,8 @@ def clear(request: HttpRequest):
     if request.method == "POST":
         for key in [
             "summary_pdf", "status_msg", "db_len",
-            "num_docs", "chat_history", "prompt_append"
+            "num_docs", "chat_history", "prompt_append",
+            "depo_pdf",
         ]:
             request.session.pop(key, None)
         request.session.modified = True
@@ -249,7 +251,12 @@ def _serve_output(request: HttpRequest, type: str):
             pdf_data   = base64.b64decode(request.session['summary_pdf'])
             pdf_buffer = io.BytesIO(pdf_data)
             docx_buffer = io.BytesIO()
-            Converter(stream=pdf_buffer).convert(docx_buffer).close()
+            # convert() returns None, so close the converter separately
+            converter = Converter(stream=pdf_buffer)
+            try:
+                converter.convert(docx_buffer)
+            finally:
+                converter.close()
             docx_buffer.seek(0)
             response = HttpResponse(
                 docx_buffer.read(),
@@ -306,9 +313,11 @@ def delete_account(request: HttpRequest):
     if request.method != 'POST':
         return HttpResponseNotAllowed(['POST'])
     user = request.user
+    # anonymous users have no account to delete; leave their session alone
+    if user is None or not user.is_authenticated:
+        return redirect(f"{settings.LOGIN_URL}?msg=You must be logged in to delete an account.")
     logout(request)
-    if user is not None:
-        user.delete()
+    user.delete()
     return redirect(settings.LOGIN_URL)
 
 # ---------------------------------------------------------------------------

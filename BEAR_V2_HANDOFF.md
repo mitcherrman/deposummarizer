@@ -7,6 +7,8 @@ Audit date: 2026-10-06
 
 This document is investigative. **No product code was changed in B0.** Bear V2 work starts at B1.
 
+> **B0.5 update:** several defects described below (DOCX 500, `www.` blank page, logout Cancel, Clear leaving `depo_pdf`, anonymous `/delete`, dead double-submit guard, page identity) were fixed in `bearv2/b05-stabilization`. See the **B0.5 addendum** at the end. Sections 1–21 still describe the B0 baseline as audited.
+
 ### Evidence labels
 
 | Label | Meaning |
@@ -576,3 +578,78 @@ The scripts were kept outside the repository, in a temp venv, and are not commit
 6. View-level checks used `RequestFactory` with a dict-based fake session and a patched `views.Thread`.
 
 Encoding note: Windows console output mangles non-ASCII. Print with `ascii()`, or set `PYTHONIOENCODING=utf-8`, before concluding that characters were lost. An apparent "accent loss" during this audit turned out to be exactly this console artifact.
+
+---
+
+## B0.5 addendum — verified stabilization
+
+Workstream: `BEAR-V2-B0.5 — verified stabilization`. Branch: `bearv2/b05-stabilization`, based on B0 commit `0b69ab85f8e1327a2033c9bd19c7ac1bd4ca7594`. This was a scoped correctness pass: no UI redesign, LLM/prompt change, dependency change or infrastructure change.
+
+### B0.5.1 Defects fixed
+
+| # | Defect (B0 ref) | Fix | File(s) |
+|---|---|---|---|
+| 1 | DOCX download 500 (§13): `Converter(...).convert(...).close()` called `.close()` on `None` | Instantiate, `convert()`, then `close()` in a `finally`. Response type and `Content-Disposition` are unchanged. | `server/views.py` |
+| 2 | `www.bearsummarizer.com` blank (S6) | Added exactly `www.bearsummarizer.com` to the `base.js` allowlist. No other host was added (`www.bear-ai-summarizer.com` is still blanked; it was never verified). | `server/static/javascript/base.js` |
+| 3 | Logout Cancel still logs out (S7) | The logout button is now `type="button"`, so only `logoutConfirm()` can submit, and only after OK. This also removes a **double POST** on OK that the old markup caused (`form.submit()` plus the native submit). | `server/templates/base.html` |
+| 4 | Clear data left `depo_pdf` in the session (S1, §7.1) | `/clear` now also pops `depo_pdf`. | `server/views.py` |
+| 5 | Anonymous `POST /delete` → 500 (S8) | Anonymous callers are redirected to `/login?msg=…` and their session is **not** flushed. Authenticated behavior is unchanged: `logout()`, then `user.delete()`, then redirect to `/login`. | `server/views.py` |
+| 6 | Dead double-submit guard (S5) | The `db_len == -1` check now runs **before** the stale-key wipe. A second upload while a job is running redirects to `/output?msg=Summary in progress, please wait.`. It starts no worker and leaves the running job's session state intact. | `server/views.py` |
+| 7 | Source-page identity (§12) | See B0.5.2. | `server/summary/summarizer.py` |
+
+### B0.5.2 Page-number policy (exact, after the fix)
+
+- `extract_text_pages()` returns `list[PageText]`, where `PageText(pdf_page: int, text: str)` is a frozen dataclass. `pdf_page` is the **1-based index in the uploaded PDF**.
+- A page is extracted if it passes the unchanged `is_page_valid` rule (≥150 chars, or contains exhibit/affidavit/page/witness). Blank and unusable pages are dropped, but nothing after them is renumbered.
+- **No blind cover skip.** `raw_pages[2:]` was removed. The repository contained no verifiable reason for it (comment: "skip cover if desired"). A cover page is summarized if it passes the validity rules; a cover without substantive text is excluded by those same rules.
+- The existing second rule is kept: an extracted page under 150 chars (i.e. valid only by keyword, such as "Exhibit 12 was marked.") is **not summarized** and gets no heading. Its text still goes to the chatbot. Later headings are unaffected.
+- Each summary record carries `pdf_page`. `build_pdf_story()` prints `Page {pdf_page}` and has **no** fallback to list position (a record without `pdf_page` raises).
+- The heading text is still `Page N`, where N is the **PDF page index**, not the printed transcript page number (§12.4).
+- Chatbot input is unchanged in substance: `"\n\n".join` of every extracted page's text (it already included the two pages the summary used to drop).
+- `db_len` = number of extracted pages (previously the count minus 2). Consequence: documents with only 1–2 valid pages now **succeed**, where they used to fail with `db_len = 0`.
+- Retry-exhaustion labels now name the PDF page (`EN page 7`), not the ordinal.
+
+Before vs. after on the synthetic 8-page fixture. The pages are: p1 cover caption (substantive), p2–3 testimony, p4 blank, p5 short with no keyword, p6 "Exhibit 12…" (short), p7–8 testimony.
+
+| | Headings → source page actually summarized |
+|---|---|
+| Before (`0b69ab8`) | Page 1 → p3, Page 2 → p7, Page 3 → p8 (p1, p2 never summarized) |
+| After | Page 1 → p1, Page 2 → p2, Page 3 → p3, Page 7 → p7, Page 8 → p8 |
+
+### B0.5.3 Tests added
+
+Run with `python manage.py test`. When the command is `test`, `manage.py` selects `server.test_settings`; `--settings` still overrides.
+
+`server/test_settings.py` **forces** placeholder env values (`OPENAI_KEY`, `GPT_MODEL`, `DEBUG_MODE`, `USE_LOCAL_DB`, `STATIC_ROOT`), so no real secret is ever used. It also sets in-memory SQLite and LocMem cache sessions. All tests are `SimpleTestCase`, so no database is created ("Skipping setup of unused database(s)"). No OpenAI, AWS or Postgres access happens, and all PDFs are synthetic and built in code. Import-time OpenAI client construction was left as is: a placeholder key makes no network call, so the B4 lazy-client refactor was not needed.
+
+| File | Covers |
+|---|---|
+| `server/tests/fixtures.py` | synthetic PDF builder (PyMuPDF), fake summary/translator LLMs that echo page markers, summary-PDF heading parser |
+| `server/tests/test_page_identity.py` (6) | `PageText` page numbers; `build_pdf_story` uses `pdf_page` and ignores order; end-to-end `create_summary` on the mixed fixture (headings = source pages, one LLM call per page); chatbot text; short leading cover; `lang=both` |
+| `server/tests/test_views.py` (12) | real pdf2docx DOCX download (200, type, disposition, content); converter `close()` lifecycle; PDF download unchanged; DOCX 409 with no summary; Clear removes `depo_pdf` and results; anonymous/authenticated/GET `/delete`; double-submit (first upload, second upload, running state preserved, new upload after completion) |
+| `server/tests/test_frontend.py` (3) | allowlist equals exactly the 5 approved hosts; logout button `type="button"`; `logoutConfirm` submits only inside `if (confirm(...))` |
+
+Results: 21/21 pass. Against the unfixed B0 code (exported with `git archive`, outside git), 13 of 21 fail, covering every fix. The 8 that pass there guard behavior that should not change. `manage.py check` passes with production settings plus placeholder env, and also with `server.test_settings`.
+
+Manual verification (not committed):
+- **Gate:** `base.js` was executed in Node with a fake DOM. Before: `www.` blanked. After: `bearsummarizer.com`, `www.bearsummarizer.com`, `bear-ai-summarizer.com`, `localhost` and `127.0.0.1` are shown; `www.bear-ai-summarizer.com` and `evil.example` are blanked.
+- **Logout:** the rendered `base.html` (old and new) was served from `127.0.0.1` and clicked in a real browser, with `confirm` stubbed and submissions intercepted.
+  - Old markup: Cancel → native submit (POST); OK → two POSTs.
+  - New markup: Cancel by mouse, Enter or Space → no POST; OK by mouse or Enter → exactly one POST.
+
+### B0.5.4 Intentionally deferred
+
+- The vector collection is still not deleted by Clear. `summary_lang` and `num_questions` still survive Clear. `depo_pdf` is still *stored* on upload (S1 storage decision → B6).
+- Keyword-valid short pages are still skipped without a recorded status (→ B4 explicit statuses).
+- "Page N" label wording, PDF/DOCX design (→ B5).
+- S2 cleanup SQL, S3 double encryption, S4 login-mid-job, upload limits, `return`-in-`finally` warning, `fitz` deprecation, lazy OpenAI clients, prompt/model/temperature, structured output, neighbor context, chunk page metadata (→ B4/B6 as planned).
+- Stale-job recovery for the now-active double-submit guard (see B0.5.5).
+
+### B0.5.5 Compatibility notes for B1–B6
+
+- **B1:** if the hostname gate changes, update `APPROVED_HOSTS` in `server/tests/test_frontend.py`; that test intentionally fails when any host is added or removed. The logout test looks for a `<button>` inside `form#logoutForm` with `onclick="logoutConfirm()"`. If the shell replaces this, keep `type="button"` (or switch to an `onsubmit` confirm) and update the test.
+- **B2:** the guard is now live. A session stuck at `db_len == -1`, because the worker died on a process restart or because of S4 (login mid-job, which copies `db_len=-1` into the new session), now gets "Summary in progress" on every upload. The user recovers through Clear data (pops `db_len`), logout or the 12h expiry. Before B0.5, a re-upload silently started a new job. B2 should fix S4 and consider surfacing a "stuck job" recovery path.
+- **B3:** the DOCX path works again; keep the separate `convert()`/`close()` calls.
+- **B4:** extend `PageText` (e.g. `method`, `status`) rather than replacing it. Summary records already carry `pdf_page`; keep the pipeline, not the model, as the source of page numbers. `db_len` semantics changed slightly (all extracted pages, no −2). Chatbot `k = max(6, db_len/32)` is effectively unchanged.
+- **B5:** `pdf_headings_to_markers()` in `server/tests/fixtures.py` parses `Page N` headings. If the heading becomes "PDF page N", update the regex there; the identity assertions themselves should stay.
+- **Tests vs. production sessions:** tests use Django cache sessions, so `server/vector_db_session.py` and PGVector are not exercised. B6 lifecycle work needs its own Postgres-backed tests, as already noted.

@@ -9,6 +9,7 @@ summarizer.py – Deposition → PDF summary (English / Spanish)
 """
 
 import io, base64, logging, time
+from dataclasses import dataclass
 import fitz  # PyMuPDF
 
 from reportlab.lib.pagesizes import letter
@@ -172,9 +173,16 @@ def _extract_clean_text_from_page(page, use_ocr_if_needed=True) -> str:
     except Exception:
         return ""
 
-def extract_text_pages(pdf_buf: io.BytesIO, sid: str):
+@dataclass(frozen=True)
+class PageText:
+    """Extracted text of one source PDF page."""
+    pdf_page: int   # 1-based page number in the uploaded PDF
+    text: str
+
+def extract_text_pages(pdf_buf: io.BytesIO, sid: str) -> list[PageText]:
     """
-    Return list[str] – one cleaned (margin-filtered) text per PDF page.
+    Return list[PageText] – cleaned (margin-filtered) text for every PDF page
+    that passes is_page_valid, tagged with its source page number.
     Uses OCR fallback where needed.
     """
     doc = fitz.open(stream=pdf_buf, filetype="pdf")
@@ -188,7 +196,7 @@ def extract_text_pages(pdf_buf: io.BytesIO, sid: str):
 
         text = _extract_clean_text_from_page(page, use_ocr_if_needed=True)
         if is_page_valid(text):
-            pages.append(text)
+            pages.append(PageText(pdf_page=idx, text=text))
             logging.info(f"✓ page {idx} ({len(text)} chars)")
         else:
             logging.info(f"× page {idx} skipped (no usable text)")
@@ -213,16 +221,18 @@ def _chat_with_retries(client, messages, sid, label,
     return f"⚠️ {label} failed after {attempts} retries."
 
 # ─────────────────── Summaries ───────────────────────────────────────────
-def summarize_deposition(pages, sid: str, target_lang="en", filter_keywords=None, filter_exclude=False):
+def summarize_deposition(pages: list[PageText], sid: str, target_lang="en", filter_keywords=None, filter_exclude=False):
     """
     Creates one summary record per page and never aborts the whole job.
-    Each record is {"en": "...", "es": "..."} depending on target_lang.
+    Each record is {"pdf_page": n, "en": "...", "es": "..."} depending on
+    target_lang, where pdf_page is the source page the summary came from.
     """
     summaries, total = [], len(pages)
 
-    for i, pg in enumerate(pages, start=1):
+    for i, page in enumerate(pages, start=1):
         update_status_msg(sid, f"{i}/{total} pages processed…")
 
+        pg = page.text
         if len(pg) < 150:                      # tiny pages → ignore
             continue
 
@@ -230,7 +240,7 @@ def summarize_deposition(pages, sid: str, target_lang="en", filter_keywords=None
         en = _chat_with_retries(
             llm,
             getPrompt(filter_keywords, filter_exclude).invoke({"input": pg[:4000]}),
-            sid, f"EN page {i}"
+            sid, f"EN page {page.pdf_page}"
         )
         if race_check(sid):
             return []
@@ -246,12 +256,12 @@ def summarize_deposition(pages, sid: str, target_lang="en", filter_keywords=None
                                  "Spanish. Preserve line breaks.")},
                     {"role": "user", "content": en},
                 ],
-                sid, f"ES page {i}"
+                sid, f"ES page {page.pdf_page}"
             )
             if race_check(sid):
                 return []
 
-        rec = {}
+        rec = {"pdf_page": page.pdf_page}
         if target_lang in ("en", "both"):
             rec["en"] = en
         if target_lang in ("es", "both"):
@@ -281,8 +291,9 @@ def build_pdf_story(summaries, target_lang="en"):
                               spaceAfter=10)
 
     story = []
-    for idx, item in enumerate(summaries, start=1):
-        story.append(Paragraph(f"Page {idx}", page_style))
+    for item in summaries:
+        # heading is the source PDF page, never the position in this list
+        story.append(Paragraph(f"Page {item['pdf_page']}", page_style))
         if "en" in item and target_lang in ("en", "both"):
             story.append(Paragraph(item["en"], style_en))
         if "es" in item and target_lang in ("es", "both"):
@@ -315,9 +326,9 @@ def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords
         logging.info(f"→ create_summary({sid}, bytes={len(pdf_bytes)})")
         update_status_msg(sid, "Extracting text 0 %")
 
-        raw_pages = extract_text_pages(io.BytesIO(pdf_bytes), sid)
-        pages      = raw_pages[2:]                    # skip cover if desired
-        raw_text   = "\n\n".join(raw_pages)
+        # every valid page is summarized; there is no blind cover-page skip
+        pages      = extract_text_pages(io.BytesIO(pdf_bytes), sid)
+        raw_text   = "\n\n".join(p.text for p in pages)
         db_len_value = len(pages)
         if race_check(sid):
             return -1
