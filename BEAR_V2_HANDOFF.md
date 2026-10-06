@@ -833,20 +833,49 @@ Stages never move backwards. "Indeterminate" is a travelling segment that implie
 
 Failure copy: **no-text**: "No readable text was found in this PDF. Scanned or image-only pages may not be readable. Try a PDF with selectable text." **error**: "Something went wrong while processing it. Please upload the PDF again; if it keeps failing, the file may be damaged or not a valid PDF." Both offer **Upload a PDF** (`/home`). A failed job never shows an empty "No summary available" iframe again.
 
-Heartbeat: `summarizer.update_status_msg` now also writes `status_at = int(time.time())` (one line; nothing else in the summarizer changed).
+Heartbeat: `summarizer.update_status_msg` also writes `status_at = int(time.time())`. The only other summarizer change is the job token below (B2.6a); nothing in extraction, prompts, models, page identity or the PDF changed.
 
 ### B2.6 Stuck / duplicate jobs
 
 - **Fast-failure race (found and fixed in B2):** the worker thread used to start *before* the response, and `SessionMiddleware` then re-saved the request's copy of the session (`db_len = -1`). A job that failed within milliseconds (e.g. an unreadable PDF) could be overwritten back to "running" forever. The worker now starts from the redirect's `close()` (`_StartWorkerAfterResponse`), i.e. after the middleware's save. WSGI (PEP 3333) and Django's ASGI handler both call `close()`. Reproduced deterministically in a test that fails on B1.
 - **Double submit:** client: one submission per page load. Server: the B0.5 guard is kept and now runs under `session_lock` against a **re-read of the stored session** as well as `request.session`, so a second request that loaded the session before the first saved it is still refused. This is process-local, like every lock here (S15). The guard still refuses uploads while `db_len == -1`, including stalled jobs; the redirect message differs ("Your previous summary stopped responding. Cancel it to upload a new document.").
-- **Stalled recovery:** after 15 minutes without a heartbeat, home and output show the stalled state with **Cancel and start over**, which is the existing Clear data (`POST /clear`, confirm dialog). Nothing is cancelled automatically. Clear now also pops `job_started`/`status_at` and still pops `depo_pdf`.
+- **Stalled recovery:** after 15 minutes without a heartbeat, home and output show the stalled state with **Cancel and start over**, which is the existing Clear data (`POST /clear`, confirm dialog). Nothing is cancelled automatically. Clear now also pops `job_started`/`status_at`/`job_id` and still pops `depo_pdf`.
 - **Sign-in mid-job (S4) fixed:** `auth` and `create_account` call `_cancel_running_job()` before `login()` (which cycles the key). If a job was running, the job keys and `depo_pdf` are dropped and the user lands on `/home?msg=Signing in cancelled the summary that was in progress. Please upload your PDF again.` The new session is immediately usable. The old worker already aborted at its next `race_check` (its session row is deleted by `cycle_key`). Signing in without a job is unchanged.
-- **Cancellation contract unchanged:** Clear, logout and expiry still make `race_check` abort the worker.
-- **Known limits (documented, not changed):** a worker that is hung (not dead) and wakes up *after* the user cancelled and started a new job would see `db_len == -1` again and could still write its result (the S5-style hazard needs a job token inside `race_check`, i.e. job-system work). A cancelled job may leave its partial `collection_<old sid>` until the hourly sweep (PGVector lifecycle → B6). The 15-minute threshold is a constant (`views.JOB_STALL_SECONDS`). A single LLM call can in theory hang longer (default client timeouts), in which case the UI will call a live job stalled. It never kills it.
+- **Cancellation contract unchanged:** Clear, logout and expiry still make `race_check` abort the worker. Each job is now also isolated by its token (B2.6a).
+- **Known limits (documented, not changed):** a cancelled job may leave its partial `collection_<old sid>` until the hourly sweep (PGVector lifecycle → B6). For Clear + re-upload the session id is unchanged, so a woken old worker that was mid-`initBot` can still rebuild `collection_<sid>` (it rebuilds with `pre_delete_collection`, and the new job rebuilds it again when it reaches that step). Its **session** writes are all refused by the token rule; the vector index is outside B2's scope. The 15-minute threshold is a constant (`views.JOB_STALL_SECONDS`). A single LLM call can in theory hang longer (default client timeouts), in which case the UI will call a live job stalled. It never kills it. The lock is process-local (S15): token checks protect against stale workers in any process, but the check-and-write atomicity relies on `session_lock` within one process.
+- **Pre-existing, unchanged:** the worker's `num_docs` increment only runs when `db_len` is still `-1` after `create_summary` returns. Because `create_summary` already writes the final `db_len`, it effectively never runs. It is kept as it was, now behind the token check.
+
+### B2.6a Job-token isolation (B2 correction)
+
+Before this correction a worker identified its job only by **session id + `db_len == -1`**. After Clear (or the stalled **Cancel and start over**) and a new upload in the same session, a hung worker that woke up saw `db_len == -1` (the *new* job's marker) and treated itself as current. It was reproduced on `3162f52` with the real views and real `create_summary`: the woken job A overwrote job B's `db_len` (`-1` → `3`) and replaced B's `summary_pdf` with A's summary; A's worker completion write set B's `db_len` to `7` and created `num_docs: 1`.
+
+**Rule:** a background write is allowed only while `session["job_id"]` equals the writing worker's own token.
+
+- **Token:** every accepted upload creates `job_id = uuid.uuid4().hex` (opaque, 128-bit random) inside the locked block in `summarize`, stores it with `db_len = -1`, and passes that exact value to the worker (`args[-1]`) → `create_summary(..., job_id=)` → `extract_text_pages`, `summarize_deposition`, `_chat_with_retries`. It is internal session state only: it is not in `/out/verify` (body or headers), in any template, or in JS.
+- **Invalidation:** `JOB_KEYS` now includes `job_id`, so the token is removed by **Clear** (also on the stalled "Cancel and start over"), by **sign-in during a job** (`_cancel_running_job`; the old session key is deleted by `cycle_key` as well), by **logout/expiry** (session gone), and replaced by every **new upload**. A new upload always gets a different token.
+- **Checks (all through the existing helpers):**
+  - `summarizer.current_job_session(sid, job_id)` returns the stored session only if it exists and `job_id` matches.
+  - `update_status_msg(sid, msg, job_id)` writes status and the heartbeat only through it.
+  - `race_check(sid, job_id)` is True (stop) if the token differs or the session is gone, or `db_len != -1`.
+  - `create_summary`'s final `summary_pdf`/`db_len` write now runs `race_check` **inside** `session_lock`, against the store it writes.
+  - The views worker's completion write (`db_len`/`num_docs`) and error write (`db_len = -2`) go through `current_job_session`.
+- **Lock discipline:** worker check-and-write pairs run under `session_lock` (as before). Clear and the sign-in cancel now pop the job keys **and save under `session_lock`**, and `summarize` already stored the new token under it, so a worker cannot pass its token check and then write after the cancel or switch.
+- **Compatibility:** `job_id` defaults to `None` on every helper. Callers that pass no token (the B0.5 page-identity tests) match a session with no token, so behavior there is identical. No timestamps, thread identity or key cycling are used for isolation. The B2 UI, form contract, `/out/verify` contract, stalled UI, sign-in cancellation and Clear are unchanged.
 
 ### B2.7 Tests
 
-`python manage.py test`: **87 tests, all pass** (39 existing, unmodified, + 48 in `server/tests/test_upload_processing.py`). `manage.py check` passes with production settings + placeholder env and with `server.test_settings`. Against the B1 code (exported with `git archive`, new test file copied in) **40 of the 48 fail**. The 8 that pass guard behavior that must not change (form values, worker args, sanitizing, sign-in without a job, status-string presence).
+`python manage.py test`: **96 tests, all pass**: 39 pre-B2 (unmodified), 48 in `server/tests/test_upload_processing.py`, and 9 in `server/tests/test_job_isolation.py` from the correction. The one edit to a B2 test is that its worker-argument helper now unpacks the token and asserts it equals `session["job_id"]`. `manage.py check` passes with production settings + placeholder env and with `server.test_settings`. Against the B1 code (exported with `git archive`, new test file copied in) **40 of the 48 fail**. The 8 that pass guard behavior that must not change (form values, worker args, sanitizing, sign-in without a job, status-string presence).
+
+`test_job_isolation.py` drives the exact race through the real views and real `create_summary` (fake LLMs only): job A starts; its first LLM call "hangs" while the test runs Clear and uploads job B; A then wakes and runs to completion. The test asserts that B's whole session is byte-for-byte unchanged (status, `status_at`, `db_len`, no `summary_pdf`, no `num_docs`), then runs B, which completes normally with only B's pages. Further tests cover:
+- A's completion and error writes refused (patched `create_summary` returning 7 / raising);
+- Clear alone leaving no writes;
+- a normal single job unchanged (`lang=both`, headings, Finished status, one LLM call per page);
+- a fresh 32-hex token per upload, matching the worker's argument;
+- the token absent from verify/home/output;
+- sign-in removing the token, with the old worker writing nothing to the new session;
+- `race_check` and `update_status_msg` token semantics.
+
+On the pre-correction commit `3162f52` the two race tests **fail** (the overwrite above), and the 4 API-level tests error because the token does not exist. The Clear-only, single-job and sign-in tests pass there as behavior guards. After the correction all 9 pass. A live run on the local harness (3-page PDF with a forced retry) still reported every stage, showed the retry notice, completed into the workspace, and `/out/verify` exposed only `X-Job-State`.
 
 Covered: home form names/values/defaults/labels and "no other named field"; `home.js` included once, after the form, with no immediate-call listener registration, hidden `filterText` chips and a client double-submit flag; `lang` × worker, `filterType` × repeated `filterText` (order, sanitizing, exclude flag); validation before session mutation; non-PDF rejection; `job_started`; worker start deferred to `close()` and the fast-failure race; guard re-reading stored session; stalled guard message; Clear → new upload; `job_status` matrix; heartbeat; verify codes/bodies/headers (no exception text); real `create_summary` on synthetic PDFs → `no-text` / `error` / `ready`; home cards per state; output panels per state (failure = `role=alert`, no iframe, no exception text; ready hides the processing view; DOM hooks/script order); sign-in mid-job cancels cleanly; status-string drift guard; and the JS mapper run in **Node** (`mapStatus`/`mergeStatus`/`describe`; skipped if Node is absent). Node 24 was present here and the test ran.
 
@@ -874,8 +903,8 @@ Run on `127.0.0.1` with a throwaway harness **outside the repo** (`server.test_s
 
 | File | Change |
 |---|---|
-| `server/views.py` | `job_status`, `JOB_STALL_SECONDS`, `JOB_KEYS`, `_cancel_running_job`, `_looks_like_pdf`, `_StartWorkerAfterResponse`; `summarize` (validate first, PDF check, locked guard re-read, `job_started`, deferred start); `verify` (additive headers); `clear` (also pops `job_started`/`status_at`); `auth`/`create_account` via `_login_and_redirect`; `home`/`output` pass `job_state`/`job_reason`/`stall_minutes` |
-| `server/summary/summarizer.py` | `update_status_msg` writes the `status_at` heartbeat (1 line) |
+| `server/views.py` | `job_status`, `JOB_STALL_SECONDS`, `JOB_KEYS`, `_cancel_running_job`, `_looks_like_pdf`, `_StartWorkerAfterResponse`; `summarize` (validate first, PDF check, locked guard re-read, `job_started`, deferred start); `verify` (additive headers); `clear` (also pops `job_started`/`status_at`/`job_id`, saved under `session_lock`); job token (`uuid4().hex` per upload, `JOB_KEYS` includes `job_id`, worker completion/error writes via `current_job_session`, `_cancel_running_job` saves under the lock); `auth`/`create_account` via `_login_and_redirect`; `home`/`output` pass `job_state`/`job_reason`/`stall_minutes` |
+| `server/summary/summarizer.py` | `update_status_msg` writes the `status_at` heartbeat; job token: `current_job_session`, token-aware `update_status_msg`/`race_check`, `job_id` threaded through `create_summary` → extraction/summaries/retries, final write checked under the lock |
 | `server/templates/home.html` | redesigned upload workflow (`page` block) |
 | `server/templates/_processing.html` | **new**: processing view |
 | `server/templates/output.html` | `page` block, includes the partial; workspace markup unchanged |
@@ -884,5 +913,6 @@ Run on `127.0.0.1` with a throwaway harness **outside the repo** (`server.test_s
 | `server/static/javascript/output.js` | polling removed (moved to `processing.js`) |
 | `server/static/styles/home.css` | rewritten on tokens |
 | `server/static/styles/processing.css` | **new** |
-| `server/tests/test_upload_processing.py` | **new**: 48 tests |
+| `server/tests/test_upload_processing.py` | **new**: 48 tests (worker-args helper also checks the token) |
+| `server/tests/test_job_isolation.py` | **new** (correction): 9 job-token race/regression tests |
 | `BEAR_V2_HANDOFF.md` | this addendum |

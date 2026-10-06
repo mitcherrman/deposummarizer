@@ -29,10 +29,21 @@ import server.summary.deposition_chatbot as cb
 # ─────────────────── Session helpers ───────────────────
 session_engine = import_module(settings.SESSION_ENGINE)
 
-def update_status_msg(sid: str, msg: str):
+def current_job_session(sid: str, job_id):
+    """
+    The stored session for `sid` if `job_id` is still its current job, else
+    None. Every worker write goes through this (under session_lock): after
+    Clear, sign-in or a new upload the token differs and the write is dropped.
+    """
+    s = session_engine.SessionStore(sid)
+    if s.exists(sid) and s.get("job_id") == job_id:
+        return s
+    return None
+
+def update_status_msg(sid: str, msg: str, job_id=None):
     with session_lock:
-        s = session_engine.SessionStore(sid)
-        if s.exists(sid):
+        s = current_job_session(sid, job_id)
+        if s is not None:
             s["status_msg"] = msg
             s["status_at"] = int(time.time())   # progress heartbeat (stalled-job detection)
             s.save()
@@ -180,7 +191,7 @@ class PageText:
     pdf_page: int   # 1-based page number in the uploaded PDF
     text: str
 
-def extract_text_pages(pdf_buf: io.BytesIO, sid: str) -> list[PageText]:
+def extract_text_pages(pdf_buf: io.BytesIO, sid: str, job_id=None) -> list[PageText]:
     """
     Return list[PageText] – cleaned (margin-filtered) text for every PDF page
     that passes is_page_valid, tagged with its source page number.
@@ -193,7 +204,7 @@ def extract_text_pages(pdf_buf: io.BytesIO, sid: str) -> list[PageText]:
         # lightweight progress
         if total < 15 or idx % 5 == 1:
             pct = int(idx / total * 100)
-            update_status_msg(sid, f"Extracting text… {pct}% ({idx}/{total})")
+            update_status_msg(sid, f"Extracting text… {pct}% ({idx}/{total})", job_id)
 
         text = _extract_clean_text_from_page(page, use_ocr_if_needed=True)
         if is_page_valid(text):
@@ -208,7 +219,7 @@ def extract_text_pages(pdf_buf: io.BytesIO, sid: str) -> list[PageText]:
 
 # ─────────────────── OpenAI with retries ────────────────────────────────
 def _chat_with_retries(client, messages, sid, label,
-                       attempts=5, backoff=8) -> str:
+                       attempts=5, backoff=8, job_id=None) -> str:
     for n in range(1, attempts + 1):
         try:
             return client.invoke(messages).content.strip()
@@ -217,12 +228,12 @@ def _chat_with_retries(client, messages, sid, label,
             logging.warning(
                 f"[{sid}] {label}: {exc} – retry {n}/{attempts} in {wait}s"
             )
-            update_status_msg(sid, f"{label}: retry {n}/{attempts}…")
+            update_status_msg(sid, f"{label}: retry {n}/{attempts}…", job_id)
             time.sleep(wait)
     return f"⚠️ {label} failed after {attempts} retries."
 
 # ─────────────────── Summaries ───────────────────────────────────────────
-def summarize_deposition(pages: list[PageText], sid: str, target_lang="en", filter_keywords=None, filter_exclude=False):
+def summarize_deposition(pages: list[PageText], sid: str, target_lang="en", filter_keywords=None, filter_exclude=False, job_id=None):
     """
     Creates one summary record per page and never aborts the whole job.
     Each record is {"pdf_page": n, "en": "...", "es": "..."} depending on
@@ -231,7 +242,7 @@ def summarize_deposition(pages: list[PageText], sid: str, target_lang="en", filt
     summaries, total = [], len(pages)
 
     for i, page in enumerate(pages, start=1):
-        update_status_msg(sid, f"{i}/{total} pages processed…")
+        update_status_msg(sid, f"{i}/{total} pages processed…", job_id)
 
         pg = page.text
         if len(pg) < 150:                      # tiny pages → ignore
@@ -241,9 +252,9 @@ def summarize_deposition(pages: list[PageText], sid: str, target_lang="en", filt
         en = _chat_with_retries(
             llm,
             getPrompt(filter_keywords, filter_exclude).invoke({"input": pg[:4000]}),
-            sid, f"EN page {page.pdf_page}"
+            sid, f"EN page {page.pdf_page}", job_id=job_id
         )
-        if race_check(sid):
+        if race_check(sid, job_id):
             return []
 
         # Spanish (if requested)
@@ -257,9 +268,9 @@ def summarize_deposition(pages: list[PageText], sid: str, target_lang="en", filt
                                  "Spanish. Preserve line breaks.")},
                     {"role": "user", "content": en},
                 ],
-                sid, f"ES page {page.pdf_page}"
+                sid, f"ES page {page.pdf_page}", job_id=job_id
             )
-            if race_check(sid):
+            if race_check(sid, job_id):
                 return []
 
         rec = {"pdf_page": page.pdf_page}
@@ -302,16 +313,18 @@ def build_pdf_story(summaries, target_lang="en"):
         story.append(Spacer(1, 8))
     return story
 
-# Check for race condition using session data, returns true if session has been modified outside of thread
-def race_check(sid: str) -> bool:
+# Check for race condition using session data, returns true if this run must stop:
+# the session is gone, another job owns it (job_id differs, e.g. after Clear and
+# a new upload) or the job is no longer running
+def race_check(sid: str, job_id=None) -> bool:
     s = session_engine.SessionStore(sid)
     try:
-        return s.get("db_len", 0) != -1 #atomic operation, no need for lock
+        return s.get("job_id") != job_id or s.get("db_len", 0) != -1
     except Exception:
         return True
 
 # ─────────────────── Orchestrator ───────────────────────────────────────
-def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords=None, filter_exclude=False) -> int:
+def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords=None, filter_exclude=False, job_id=None) -> int:
     """
     End-to-end controller.
 
@@ -320,49 +333,53 @@ def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords
       missing when the worker thread opened it)
     • Will abort early if another summary finishes first to save compute
       (returns -1 in this case)
+    • job_id is the upload's token (session["job_id"]); every status update,
+      race check and the final write require it to still be current
     """
     db_len_value = 0                                  # pessimistic default
 
     try:
         logging.info(f"→ create_summary({sid}, bytes={len(pdf_bytes)})")
-        update_status_msg(sid, "Extracting text 0 %")
+        update_status_msg(sid, "Extracting text 0 %", job_id)
 
         # every valid page is summarized; there is no blind cover-page skip
-        pages      = extract_text_pages(io.BytesIO(pdf_bytes), sid)
+        pages      = extract_text_pages(io.BytesIO(pdf_bytes), sid, job_id)
         raw_text   = "\n\n".join(p.text for p in pages)
         db_len_value = len(pages)
-        if race_check(sid):
+        if race_check(sid, job_id):
             return -1
 
         # optional chatbot DB
         try:
-            update_status_msg(sid, "Configuring chatbot…")
+            update_status_msg(sid, "Configuring chatbot…", job_id)
             cb.initBot(raw_text, sid)
         except Exception as e:
             logging.warning(f"[{sid}] chatbot DB skipped: {e}")
-        if race_check(sid):
+        if race_check(sid, job_id):
             return -1
 
         # build summaries
-        summaries = summarize_deposition(pages, sid, target_lang, filter_keywords, filter_exclude)
-        if race_check(sid):
+        summaries = summarize_deposition(pages, sid, target_lang, filter_keywords, filter_exclude, job_id)
+        if race_check(sid, job_id):
             return -1
 
         # build PDF
-        update_status_msg(sid, "Building PDF summary…")
+        update_status_msg(sid, "Building PDF summary…", job_id)
         pdf_buf = io.BytesIO()
         write_summaries_to_pdf(summaries, pdf_buf, target_lang)
 
     except Exception as e:
         logging.exception(f"[{sid}] create_summary crashed")
-        update_status_msg(sid, f"❌ Error: {e}")
+        update_status_msg(sid, f"❌ Error: {e}", job_id)
         db_len_value = 0                               # signal failure
 
     # ── ALWAYS write results / finish flag ────────────────────────────────
     finally:
-        if race_check(sid):
-            return -1
         with session_lock:
+            # checked under the lock so Clear / a new upload can't slip in
+            # between the check and the write
+            if race_check(sid, job_id):
+                return -1
             s = session_engine.SessionStore(sid)
             # write the PDF only if the run succeeded
             if db_len_value:
@@ -371,5 +388,5 @@ def create_summary(pdf_bytes: bytes, sid: str, target_lang="en", filter_keywords
             s.save()
 
     if db_len_value:
-        update_status_msg(sid, "Finished ✓  Ready to download.")
+        update_status_msg(sid, "Finished ✓  Ready to download.", job_id)
     return db_len_value

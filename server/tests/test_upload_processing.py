@@ -149,7 +149,8 @@ class SummarizeContractTests(SessionMixin, SimpleTestCase):
 
     def worker_args(self):
         self.thread.assert_called_once()
-        sid, lang, pdf_bytes, keywords, exclude = self.thread.call_args.kwargs["args"]
+        sid, lang, pdf_bytes, keywords, exclude, job_id = self.thread.call_args.kwargs["args"]
+        self.assertEqual(job_id, self.session_value("job_id"))
         return lang, keywords, exclude
 
     def test_lang_values_reach_the_worker(self):

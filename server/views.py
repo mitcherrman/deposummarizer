@@ -6,7 +6,7 @@ from django.shortcuts import render, redirect
 from pdf2docx import Converter
 from server.util import session_lock
 from . import util
-import io, base64, re, time
+import io, base64, re, time, uuid
 
 from django.http import (
     HttpResponse, HttpResponseNotAllowed, HttpResponseServerError,
@@ -23,7 +23,7 @@ from importlib import import_module
 from pdf2docx import Converter
 from decouple import config
 
-from server.summary.summarizer import create_summary
+from server.summary.summarizer import create_summary, current_job_session
 from server.summary.deposition_chatbot import askQuestion
 from server.util import session_lock
 from . import util
@@ -38,8 +38,10 @@ session_engine = import_module(settings.SESSION_ENGINE)
 # stalled and the user is offered a way to cancel it
 JOB_STALL_SECONDS = 15 * 60
 
-# session keys describing the current job; removed when a job is cancelled
-JOB_KEYS = ("db_len", "status_msg", "job_started", "status_at")
+# session keys describing the current job; removed when a job is cancelled.
+# job_id is the upload's opaque token: a worker may only write to the session
+# while session["job_id"] is still its own (see summarizer.current_job_session)
+JOB_KEYS = ("db_len", "status_msg", "job_started", "status_at", "job_id")
 
 def job_status(session):
     """
@@ -67,11 +69,17 @@ def job_status(session):
     return "none", None
 
 def _cancel_running_job(session) -> bool:
-    """Drop an in-flight job from the session; its worker aborts at the next race_check."""
-    if session.get("db_len") != -1:
-        return False
-    for k in JOB_KEYS + ("depo_pdf",):
-        session.pop(k, None)
+    """
+    Drop an in-flight job (and its token) from the session; its worker aborts
+    at the next race_check and its writes are refused. Saved under the lock
+    so a worker can't check its token and write in between.
+    """
+    with session_lock:
+        if session.get("db_len") != -1:
+            return False
+        for k in JOB_KEYS + ("depo_pdf",):
+            session.pop(k, None)
+        session.save()
     return True
 
 def _looks_like_pdf(data: bytes) -> bool:
@@ -148,14 +156,15 @@ def summarize(request: HttpRequest):
             return redirect(f"{reverse(output)}?msg={msg}")
 
         # remove leftovers from an earlier run so counters start at 0
-        for k in ("summary_pdf", "status_msg", "db_len", "job_started", "status_at",
-                  "num_docs", "chat_history", "prompt_append"):
+        for k in JOB_KEYS + ("summary_pdf", "num_docs", "chat_history", "prompt_append"):
             request.session.pop(k, None)
         request.session.modified = True            # flag change before save
 
         # 4) ------- stash file & flags in session -----------------------------
+        job_id = uuid.uuid4().hex         # new token: older workers can no longer write
         request.session.update({
             "db_len": -1,                 # in-progress marker
+            "job_id": job_id,
             "job_started": int(time.time()),
             "prompt_append": [],
             "summary_lang": lang_choice,
@@ -164,16 +173,17 @@ def summarize(request: HttpRequest):
         request.session.save()
 
     # 5) ------- background worker --------------------------------------------
-    def worker(sess_id, lang, pdf_data, filter_keywords, filter_type):
+    def worker(sess_id, lang, pdf_data, filter_keywords, filter_type, job_id):
         print(f"▶ worker start  sid={sess_id}  lang={lang}  bytes={len(pdf_data)}")
         try:
-            page_cnt = create_summary(pdf_data, sess_id, target_lang=lang, filter_keywords=filter_keywords, filter_exclude=filter_type)
+            page_cnt = create_summary(pdf_data, sess_id, target_lang=lang, filter_keywords=filter_keywords,
+                                      filter_exclude=filter_type, job_id=job_id)
         except Exception as e:
             import traceback, sys
             traceback.print_exc(file=sys.stdout)
             with session_lock:
-                s = session_engine.SessionStore(sess_id)
-                if s.exists(sess_id):
+                s = current_job_session(sess_id, job_id)   # None once cancelled/replaced
+                if s is not None:
                     s.update({
                         "db_len": -2,
                         "status_msg": f"Error: {e}",
@@ -182,15 +192,15 @@ def summarize(request: HttpRequest):
             return
 
         with session_lock:
-            s = session_engine.SessionStore(sess_id)
-            if s.exists(sess_id):
+            s = current_job_session(sess_id, job_id)       # None once cancelled/replaced
+            if s is not None:
                 #check if already complete by another thread
                 if (s.get("db_len", 0) == -1 and page_cnt != -1):
                     s["db_len"] = page_cnt
                     s["num_docs"] = s.get("num_docs", 0) + 1
                     s.save()
 
-    job = Thread(target=worker, args=[sid, lang_choice, pdf_bytes, filter_keywords, filter_type == "exclude"])
+    job = Thread(target=worker, args=[sid, lang_choice, pdf_bytes, filter_keywords, filter_type == "exclude", job_id])
     return _StartWorkerAfterResponse(reverse(output), job.start)
 
 # ---------------------------------------------------------------------------
@@ -268,14 +278,19 @@ def cyclekey(request: HttpRequest):
 # ---------------------------------------------------------------------------
 def clear(request: HttpRequest):
     if request.method == "POST":
-        for key in [
-            "summary_pdf", "status_msg", "db_len",
-            "job_started", "status_at",
-            "num_docs", "chat_history", "prompt_append",
-            "depo_pdf",
-        ]:
-            request.session.pop(key, None)
-        request.session.modified = True
+        # under the lock, and saved there, so a worker can't check its job
+        # token and write between this cancel and the response
+        with session_lock:
+            for key in [
+                "summary_pdf", "status_msg", "db_len",
+                "job_started", "status_at", "job_id",
+                "num_docs", "chat_history", "prompt_append",
+                "depo_pdf",
+            ]:
+                request.session.pop(key, None)
+            request.session.modified = True
+            if request.session.session_key:
+                request.session.save()
     return redirect("/home")
 
 # ---------------------------------------------------------------------------
