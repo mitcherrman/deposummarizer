@@ -179,10 +179,11 @@ class SummarizeContractTests(SessionMixin, SimpleTestCase):
                 })
                 self.assertEqual(self.worker_args()[1:], (keywords, exclude))
 
-    def test_filter_text_sanitizing_is_unchanged(self):
+    def test_filter_text_sanitizing_keeps_unicode_letters(self):
+        # B4 replaced the ASCII-only rule ("niño's café" used to become "nios caf")
         self.client.post("/summarize", {"file": pdf_upload(), "lang": "en", "filterType": "include",
                                         "filterText": ["niño's café", "x-ray 2"]})
-        self.assertEqual(self.worker_args()[1], ["nios caf", "x-ray 2"])
+        self.assertEqual(self.worker_args()[1], ["niños café", "x-ray 2"])
 
     def test_invalid_values_are_rejected_before_the_session_changes(self):
         self.set_session(summary_pdf="b2xk", db_len=3)
@@ -385,7 +386,8 @@ class CreateSummaryFailureStateTests(SimpleTestCase):
         self.assertEqual(self.run_job(make_pdf([None, None])), ("failed", "no-text"))
 
     def test_unreadable_pdf(self):
-        with mock.patch.object(summarizer, "extract_text_pages", side_effect=RuntimeError("boom")):
+        # B4: create_summary extracts through extract_source_pages (every page)
+        with mock.patch.object(summarizer, "extract_source_pages", side_effect=RuntimeError("boom")):
             self.assertEqual(self.run_job(make_pdf([testimony(1)])), ("failed", "error"))
 
     def test_success(self):

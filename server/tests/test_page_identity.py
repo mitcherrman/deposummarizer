@@ -1,11 +1,16 @@
 """
 Every summary heading must name the PDF page the summary was generated from.
+
+B4: these B0.5 tests now run against the v1 (rollback) pipeline, which must
+keep this page identity, including its short-page skip. The structured v2
+pipeline gives every page an explicit outcome instead; its equivalents are in
+test_summary_pipeline.py.
 """
 import base64
 import io
 from unittest import mock
 
-from django.test import SimpleTestCase
+from django.test import SimpleTestCase, override_settings
 
 from server.summary import summarizer
 from server.tests.fixtures import (
@@ -41,6 +46,7 @@ MIXED_PAGES = [
 ]
 
 
+@override_settings(SUMMARY_PIPELINE_VERSION="v1")
 class PageIdentityTestBase(SimpleTestCase):
     def setUp(self):
         self.llm = FakeSummaryLLM()

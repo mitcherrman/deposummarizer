@@ -136,6 +136,34 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 TEST_WITHOUT_AI = False #if set to true, does not recreate database and generates dummy summary to save on API calls, set to false in production
 
+# --- Summary pipeline (BEAR-V2-B4) ------------------------------------------
+# Non-secret settings; every value can be overridden by an environment variable.
+# The OpenAI key is still read only when a client is first built.
+def _optional_float(value):
+    # "", "none" or "default" mean: don't send the parameter at all
+    value = str(value).strip().lower()
+    return None if value in ("", "none", "default") else float(value)
+
+# v2 = structured pipeline (default). v1 = pre-B4 free-text pipeline, kept for
+# one release as a rollback switch; remove in B6.
+SUMMARY_PIPELINE_VERSION = config("SUMMARY_PIPELINE_VERSION", default="v2").strip().lower()
+# summary model: the existing GPT_MODEL variable stays the source of truth
+SUMMARY_MODEL = config("GPT_MODEL", default="gpt-4o-mini").strip()
+# translation model; empty = use SUMMARY_MODEL
+TRANSLATION_MODEL = config("TRANSLATION_MODEL", default="").strip()
+# sent only to models that accept it (see summary/ai_clients.py)
+SUMMARY_TEMPERATURE = config("SUMMARY_TEMPERATURE", default="0", cast=_optional_float)
+# auto | json_schema | json_object
+SUMMARY_RESPONSE_FORMAT = config("SUMMARY_RESPONSE_FORMAT", default="auto").strip().lower()
+# safety cap on characters of one page sent to the model (0 = no cap);
+# truncation is recorded on the page and shown in the summary
+SUMMARY_MAX_PAGE_CHARS = config("SUMMARY_MAX_PAGE_CHARS", default=40000, cast=int)
+# evaluation-only: give the model marked neighbor-page context. Off unless an
+# evaluation shows it helps without page misattribution.
+SUMMARY_NEIGHBOR_CONTEXT = config("SUMMARY_NEIGHBOR_CONTEXT", default=False, cast=bool)
+# seconds before one summary/translation request is abandoned (then retried)
+SUMMARY_REQUEST_TIMEOUT = config("SUMMARY_REQUEST_TIMEOUT", default=120, cast=int)
+
 SESSION_ENGINE = 'server.vector_db_session'
 
 SESSION_COOKIE_AGE = 60 * 60 * 12 #12 hours

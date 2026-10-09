@@ -1142,3 +1142,464 @@ No OpenAI, AWS, Postgres or legal documents were used. Downloads were exercised 
 | `server/views.py` | `chat_available()`; `output` adds `chat_state`, `summary_pages`, `summary_lang_label`, `has_chat_history` for ready summaries |
 | `server/tests/test_output_workspace.py` | **new**: 34 B3 tests |
 | `BEAR_V2_HANDOFF.md` | this addendum |
+
+---
+
+## B4 addendum: summary correctness and the structured LLM pipeline
+
+| | |
+|---|---|
+| Workstream | `BEAR-V2-B4 — summary correctness / structured LLM pipeline` |
+| Branch | `bearv2/b4-summary-correctness` |
+| Based on | the certified B3 commit `d34114cc98832c2429eaabf74a364038f89e9e1b` (not on `main`) |
+
+**Scope.** The summary-generation pipeline only. Nothing was changed in:
+
+- the generated-PDF design (B5);
+- RAG, retrieval, chunking, embeddings or collection naming;
+- chat citations;
+- vector cleanup or the session engine's lifecycle logic;
+- AWS or deployment;
+- dependency pins.
+
+**No live model call was made.** The default suite and the browser run used only fakes.
+
+### B4.1 Page model and extraction
+
+`PageText` is extended, not replaced. It is a frozen dataclass with these fields:
+
+- `pdf_page`: the 1-based index in the uploaded PDF;
+- `text`;
+- `method`: `native`, `ocr`, `fallback` or `none`;
+- `usable`: `is_page_valid(text)`, with the rule unchanged.
+
+The new fields have defaults, so `PageText(pdf_page, text)` still constructs.
+
+Extraction functions:
+
+- **`extract_source_pages()`** returns **one record for every PDF page**, in order. The pipeline calls it with `should_stop`, so a stale job stops between pages, which matters for slow OCR.
+- **`extract_text_pages()`** is kept as the v1 view: the usable records only.
+
+Printed transcript page/line numbers are still out of scope. "Page N" means the PDF page index.
+
+**`db_len` is unchanged.** It is the number of usable pages. That value drives:
+
+- B3's "Text read from N pages";
+- the chatbot's `k = max(6, db_len/32)`;
+- the success flag (`> 0`).
+
+Skipped pages never count, and the chatbot text is still the join of the usable pages.
+
+The v2 pipeline, given no usable page, returns `db_len = 0` without building an index or calling the model. That is B2's `failed/no-text`, as before.
+
+**Second short-page filter removed (v2).** The `len(pg) < 150` skip in `summarize_deposition` contradicted extraction. A keyword-valid short page such as "(Exhibit 15 was marked…)" now gets a model call and an explicit outcome. The old v1 function still has the skip, because v1 is the rollback path; see B4.9.
+
+### B4.2 Structured schema (`server/summary/schema.py`)
+
+`PageSummary` is a frozen dataclass. There is one per PDF page, in PDF order, and its invariants are enforced in `__post_init__`.
+
+| Field | Meaning |
+|---|---|
+| `pdf_page` | Set by the pipeline. The model never sees or supplies it. |
+| `status` | `summarized` (1–3 bullets), `no_relevant_content` (0 bullets), `skipped_no_text` (no model call), or `failed` (no bullets). |
+| `bullets` | Tuple of plain-text strings. |
+| `uncertain` | Bool. The model sets it when the page text is garbled or ambiguous. |
+| `spanish_bullets` | Same length as `bullets` when the translation succeeded. |
+| `translation_status` | `not_requested`, `not_applicable` (nothing to translate), `translated` or `failed`. |
+| `extraction_method` | From `PageText.method`. |
+| `source_chars`, `summarized_chars` | Text length extracted and sent; `truncated` is a property derived from them. |
+| `to_dict()` | JSON form for reports and future renderers. |
+
+**Model replies are validated by `parse_summary_response`.**
+
+- The reply must be exactly `{"status", "bullets", "uncertain"}`. Any extra key is invalid, which also covers a model-supplied `pdf_page`.
+- `status` must be `summarized` or `no_relevant_content`.
+- `uncertain` must be a real bool.
+- There may be at most 3 bullets.
+- Status and bullets must agree: `summarized` with 0 bullets, or `no_relevant_content` with bullets, is invalid.
+
+**Each bullet goes through `clean_bullet`.**
+
+- Whitespace is collapsed and control characters are removed.
+- A leading `•`, `-`, `*` or similar marker is dropped.
+- These are rejected:
+  - an embedded `•`;
+  - HTML or ReportLab tags (`<br>`, `<b>`, `<font>`, `<para>`, `<script>` …);
+  - an empty bullet;
+  - a bullet longer than 1000 characters.
+
+Other angle-bracket text, such as a quoted `<Exhibit 4>`, is kept and escaped by the renderer.
+
+The provider JSON schemas (`SUMMARY_JSON_SCHEMA`, `TRANSLATION_JSON_SCHEMA`) are strict-compatible. Array and length limits are enforced in Python, because strict-mode support for those keywords varies by model.
+
+### B4.3 Prompt (`server/summary/prompts.py`)
+
+The system prompt is fixed text. Everything document- or user-derived goes in **one JSON user message**:
+
+```
+{"source_page_text": ..., "filter": {"mode", "topics"}}
+```
+
+Because the page text is a JSON string, it cannot close a delimiter. The prompt says every JSON field is data, never instructions. Topics are also user data, so they are never interpolated into the instructions.
+
+The prompt states these rules:
+
+- summarize only this one page;
+- "You are not given the rest of the deposition" (the false "entire document" claim is gone);
+- attribute statements to their speaker;
+- keep witness testimony separate from attorney questions, objections and statements ("a question is not testimony");
+- keep these exactly as written: names, dates, times, amounts, measurements, quantities, exhibit and document identifiers, and material quotes;
+- keep qualifications and uncertainty;
+- no invented facts, no inferred intent, no legal conclusions, no credibility judgments, no diagnoses;
+- plain sentences: no markup, bullet symbols, numbering or line breaks;
+- filter rules (below);
+- output only the JSON object, with no page numbers.
+
+**Injection tests.** Synthetic tests cover:
+
+- an "ignore previous instructions" page;
+- a JSON break-out attempt in the page text;
+- a model that "obeys" the page and replies with prose.
+
+The prose reply fails validation twice, so the page is recorded as `failed`.
+
+**Page text length.**
+
+- The full extracted page is sent; the silent `pg[:4000]` is gone from v2.
+- A safety cap exists: `SUMMARY_MAX_PAGE_CHARS`, default 40,000, where 0 means none.
+- When the cap applies, the cut is recorded in `summarized_chars`, logged, and printed in the summary: "Only the first N of M characters of this page were summarized."
+- There is no multi-page chunking.
+
+**Neighbor context** is an evaluation-only setting, `SUMMARY_NEIGHBOR_CONTEXT`, **default False**.
+
+- When it is on, the payload adds `context_only_previous_page_tail` and `context_only_next_page_head`: up to 600 characters from adjacent usable pages.
+- The prompt marks them "CONTEXT ONLY — DO NOT SUMMARIZE OR ATTRIBUTE TO CURRENT PAGE."
+- It stays off: no live evaluation has shown a benefit.
+
+### B4.4 Filters and Unicode topics
+
+Filter modes:
+
+| Mode | Behavior |
+|---|---|
+| `none` | Summarize the substantive content. |
+| `include` | Only content related to the topics. |
+| `exclude` | Omit content related to the topics. |
+
+- If nothing relevant remains, the result is `status = no_relevant_content` with no bullets. The renderer shows a fixed note, and the old "no important information" filler bullet is gone.
+- Blank topics are ignored. Include/exclude with no remaining topic behaves like `none`.
+
+**Sanitizer.** `views.summarize` now calls `util.sanitize_filter_topic`.
+
+- The text is NFC-normalized first.
+- It keeps letters, numbers and combining marks in any script, plus spaces and hyphens.
+- Dash-like characters become `-`, and other whitespace becomes a space.
+- Everything else is dropped, including `< > & " '`.
+- Examples: `niño` and `café` survive, and "niño's café" becomes "niños café".
+
+The B2 test that asserted the old ASCII result was renamed and updated on purpose (`test_filter_text_sanitizing_keeps_unicode_letters`).
+
+**Client side.** Two narrow `home.js`/`home.html` changes keep the UI honest; the filter UI was not redesigned.
+
+- The client check now mirrors the server: `\p{L}\p{N}\p{M}`, with the error "Use letters or numbers in the topic."
+- The hint now reads: "Letters (including accented letters), numbers, spaces and hyphens are used; other characters are ignored."
+
+### B4.5 Translation
+
+The **structured bullet array** is translated: JSON `{"bullets": [...]}` in and out. The legacy formatted-string path (`<br/>` text to `gpt-3.5-turbo-0125`) and the dead `translate_to_spanish()` are gone from v2.
+
+**Validation (`parse_translation_response`):**
+
+- the reply has the exact key;
+- it has the same number of bullets;
+- each bullet passes the same plain-text rules;
+- every digit run of each English bullet is still present in its Spanish bullet, so values stay intact while date and number formatting may be localized.
+
+On an invalid reply there is one repair retry; after that `translation_status = failed`.
+
+**Outcomes by language:**
+
+| `lang` | Result |
+|---|---|
+| `both` | English and Spanish arrays in the same record. |
+| `es` | English is produced first (internally), then translated. The PDF shows **only** Spanish bullets and Spanish app notes. If the translation failed, a Spanish "translation unavailable" note is shown; English is never passed off as Spanish. |
+| `en` | No translation call. |
+
+`no_relevant_content` pages are not translated (`not_applicable`).
+
+**Model.** `TRANSLATION_MODEL` is used if set; otherwise the summary model.
+
+### B4.6 Model, configuration and temperature (`server/summary/ai_clients.py` + `settings.py`)
+
+All settings are non-secret and environment-driven.
+
+| Setting | Default | Purpose |
+|---|---|---|
+| `SUMMARY_PIPELINE_VERSION` | `v2` | `v1` = rollback. |
+| `SUMMARY_MODEL` | from `GPT_MODEL`, default `gpt-4o-mini` | Unchanged source of truth. No new model was hard-coded. |
+| `TRANSLATION_MODEL` | empty | Empty = the summary model. |
+| `SUMMARY_TEMPERATURE` | `0` | `none`/`default`/empty = don't send it. |
+| `SUMMARY_RESPONSE_FORMAT` | `auto` | `json_schema` or `json_object` force a mode. |
+| `SUMMARY_MAX_PAGE_CHARS` | `40000` | Safety cap; 0 = none. |
+| `SUMMARY_NEIGHBOR_CONTEXT` | `False` | Evaluation-only option. |
+| `SUMMARY_REQUEST_TIMEOUT` | `120` s | Per-request timeout. |
+
+`server/test_settings.py` pins all of these for the suite.
+
+**What the installed packages support.** This was inspected, not guessed (langchain-openai 1.6.7, openai 3.24.0).
+
+- A `response_format` dict passed per call reaches `chat.completions.parse` unchanged.
+- The pipeline therefore sends the provider's **Structured Outputs** format: `{"type":"json_schema","json_schema":{"name","strict":true,"schema"}}`.
+- It then validates the raw JSON text itself.
+
+**How `auto` picks a mode.** It uses `json_schema`, except `json_object` (JSON mode) for the model names the installed langchain-openai itself flags as lacking Structured Outputs: `gpt-3*`, `gpt-4-*` and `gpt-4`. Both prompts contain the word "JSON", which JSON mode requires. No dependency was upgraded.
+
+**Temperature policy.**
+
+- The default is 0.
+- It is omitted for model families that reject non-default values: the o-series (`o\d…`) and `gpt-5*` except the `*-chat` models. The installed langchain-openai drops it for the latter too.
+- A test captures the real request body through an in-process `httpx.MockTransport`.
+
+**Retry layering.** Clients are built with `max_retries=0`, so the SDK no longer multiplies the app's retries. The timeout is `SUMMARY_REQUEST_TIMEOUT`, so a hung call becomes a retry instead of hanging the job.
+
+**Chat is unchanged.** The chat model is still `GPT_MODEL` at temperature 1, and the embeddings are still `text-embedding-3-small`. Chat tuning was out of scope.
+
+### B4.7 Retry and failure policy
+
+- **Provider errors.** Up to `PROVIDER_ATTEMPTS` = 5 requests, with back-off of 8 s × n.
+  - The back-off sleeps in 1 s slices and checks the job token, so a cancelled job stops retrying.
+  - Status text keeps the B2 format, `EN page 7: retry 2/5…`.
+- **Invalid structured reply.** One repair retry (`SCHEMA_ATTEMPTS` = 2): the original request plus a short note naming the validation error.
+- **Shared budget.** Both budgets come from one loop. A page call makes at most 5 + 2 − 1 = 6 requests.
+- **Exhaustion.** The call raises `ProviderFailure` or `InvalidModelOutput`, and the page becomes `status = failed` with no bullets. Details go to the log only.
+- **Failures are not content.** The old `⚠️ … failed after N retries.` string can no longer be produced, in v1 or v2.
+- **Job-level failure.** If **every** attempted page failed, the job fails (`db_len = 0`, `❌ Error` status → B2 `failed/error`) instead of producing a PDF of failure notes. Any successful or `no_relevant_content` page keeps the job successful.
+- **Cancellation (B2).** `_raise_if_stale` runs before every model request, between pages, between the English summary and its translation, during back-off, and between extraction pages. `JobCancelled` propagates to `create_summary`, which returns −1 and writes nothing.
+
+### B4.8 Lazy AI clients
+
+These modules no longer build any OpenAI client, read `OPENAI_KEY` or import `langchain_openai` at import time:
+
+- `summarizer.py`;
+- `deposition_chatbot.py`;
+- `server/vector_db_session.py`: the production session engine also built an `OpenAIEmbeddings` at import. This was found in B4 and fixed in the same narrow way; no lifecycle logic changed.
+
+`ai_clients` builds each client on first use and caches it.
+
+Override hooks stay `None` in production; tests and the harness assign fakes:
+
+- `summarizer.llm` / `summarizer.translator_llm`;
+- `cb.model` / `cb.embedding`;
+- `vector_db_session.embedding`.
+
+**Consequence.** `manage.py check` and importing the app now work with **no `OPENAI_KEY` at all**; B0 §21 said this failed. Tests check this in a subprocess.
+
+The PyMuPDF import is now `import pymupdf as fitz`, with a fallback to `fitz` for older installs. pdf2docx still prints PyMuPDF's own deprecation notice.
+
+### B4.9 `create_summary` control flow and the v1 rollback
+
+**`create_summary` keeps its signature, return values, session keys and B2 token rules.**
+
+- `_generate()` runs extraction, then indexing, then summaries, then the PDF.
+- `JobCancelled` returns −1.
+- Any other exception logs, writes `❌ Error: …` (token-checked), and sets `db_len = 0`.
+- The final write is still token-checked under `session_lock`.
+- There is **no `return` in a `finally`.** The suite runs clean with `-W error::SyntaxWarning`, and an AST test guards it.
+- Errors in the final write propagate to the worker, which records −2 through its own token check.
+
+**Status strings are unchanged**, so `processing.js` and its drift test needed no edit:
+
+- "Extracting text…";
+- "Configuring chatbot…";
+- "i/total pages processed…" (total = usable pages);
+- retry text;
+- "Building PDF summary…";
+- "Finished ✓…".
+
+**v1 rollback.** Setting `SUMMARY_PIPELINE_VERSION=v1` selects the pre-B4 pipeline without reverting code:
+
+- the old prompts;
+- temperature 1;
+- the `gpt-3.5-turbo-0125` translator;
+- the `<150` skip;
+- the `[:4000]` slice.
+
+It shares extraction, the job tokens, indexing and `db_len` with v2, so it keeps B0.5 page identity and the B2 isolation. The B0.5 page-identity tests now run pinned to v1 to prove that.
+
+Two safety fixes also apply to v1:
+
+- retry exhaustion records `{"pdf_page", "failed": True}` and renders a fixed note instead of the `⚠️` string;
+- its text is escaped before ReportLab, keeping only the `<br/>` it asks for (and turning newlines into breaks).
+
+An unknown value logs a warning and uses v2. **Remove v1 in B6** once v2 is accepted.
+
+### B4.10 PDF / DOCX compatibility and the B5 renderer contract
+
+The **transitional** renderer is `build_pdf_story`, kept minimal. It accepts `PageSummary` records (v2) and dicts (v1).
+
+**Ownership and escaping.**
+
+- The application owns every tag.
+- Bullets are rendered as `"• " + escape(text)` joined with `<br/>`.
+- Notes are escaped fixed strings: English, or Spanish for `lang=es`.
+- No model text can become ReportLab markup. `<font>`, `<para>`, `&` and `<Exhibit 4>` all render literally.
+
+**How each status renders.**
+
+- `skipped_no_text` pages get no heading, as before B4.
+- Headings stay `Page N`, so the `pdf_headings_to_markers` fixture is unchanged.
+- `no_relevant_content`, `failed`, `uncertain`, `truncated` and a failed translation each get a grey italic note.
+
+`/out/pdf` and `/out/docx` (pdf2docx) are unchanged and verified.
+
+**Contract for B5:**
+
+- consume the ordered `list[PageSummary]` that `summarize_pages_v2` returns;
+- one record per PDF page, `pdf_page` always correct;
+- render by `status` and `translation_status`;
+- escape `bullets` and `spanish_bullets`; they are plain text;
+- show `uncertain` and `truncated`;
+- decide how to show `skipped_no_text` pages; the current renderer omits them.
+
+The call site is `summarizer.write_summaries_to_pdf(summaries, buf, target_lang)`.
+
+### B4.11 Session storage decision
+
+No new session payload was added. Structured records exist only in-process between summarization and PDF building. `summary_pdf` stays the only persisted artifact.
+
+If B5 or a mobile HTML view needs the records after the job, persist them then and quantify the size at that point. A compact JSON copy is roughly 1–3 KB per summarized page. It would be another durable copy of deposition-derived text, so it needs a lifecycle decision alongside S1.
+
+### B4.12 Evaluation harness (`evaluation/`) and live-eval status
+
+These files run the real v2 page pipeline on **synthetic** fixtures:
+
+- `harness.py`;
+- `run_eval.py`;
+- `fixtures/synthetic_depositions.json`: two invented depositions with names, dates, times, money, measurements, exhibits, attorney lines, qualified testimony, a blank page, a short exhibit page, an injection page, a medical page for filter cases, and a recess page;
+- `README.md`.
+
+**Metrics:**
+
+| | Metric |
+|---|---|
+| A | Page identity, plus cross-page entity misattribution. |
+| B | First-reply and after-retry schema validity. |
+| C | Entity preservation. |
+| D | Forbidden phrases, obeyed injection and unsupported numbers, plus `human_review` samples with `human_verdict: null`. |
+| E | Filter statuses and excluded-term leaks. |
+| F | Spanish counts, numbers and names. |
+| G | Latency and tokens; cost only from prices the caller supplies, since no prices are hard-coded. |
+
+**Offline reference run.** This is a deterministic fake that only checks the harness:
+
+- page identity exact, 0 misattributions;
+- validity after retry 1.0;
+- filter matches 1.0 / 1.0;
+- Spanish counts all match;
+- 32 requests.
+
+**Live mode** requires `BEAR_LIVE_EVAL=1` plus a separate `BEAR_EVAL_OPENAI_KEY`. It refuses a key equal to `OPENAI_KEY` and accepts at most 3 models.
+
+**Live model comparison not run.** No evaluation key or flag existed, and no API money was spent. Still to do, owner-run:
+
+1. Baseline (production `GPT_MODEL`) against 1–2 currently supported candidates, chosen from current OpenAI docs at that time.
+2. The same with `--neighbor-context`.
+3. Confirm that the production model accepts strict `json_schema`. If not, set `SUMMARY_RESPONSE_FORMAT=json_object`.
+4. Human review of the `human_review` samples.
+
+Keep `SUMMARY_TEMPERATURE=0` and neighbor context off unless these show otherwise.
+
+### B4.13 Tests
+
+`python manage.py test`: **241 tests, all pass**. That is the 141 pre-B4 tests plus 100 new.
+
+`manage.py check` is clean in three configurations:
+
+- `server.test_settings`;
+- production settings with placeholder env (also under `-W error::SyntaxWarning`);
+- production settings with **no** `OPENAI_KEY`.
+
+The default suite makes no network call. B4 test classes block `socket` connects. The existing suite has always used fakes.
+
+**Existing tests changed on purpose** (each encodes behavior B4 replaces):
+
+- `test_page_identity.py`: pinned to v1 with `@override_settings`, because it asserts the v1 short-page skip. Assertions are unchanged.
+- `test_upload_processing.py`:
+  - the sanitizer test now expects Unicode;
+  - `test_unreadable_pdf` patches `extract_source_pages`, the new entry point.
+- `fixtures.py`: the fake models also answer the v2 JSON protocol. v1 replies are unchanged.
+
+**New test files:**
+
+| File | Tests | Covers |
+|---|---|---|
+| `test_summary_pipeline.py` | 58 | Every page status; no short-page drop; full text beyond 4,000 characters and the recorded cap; repair retry; exhaustion → failed with no leaked text; bounded budgets; model `pdf_page` rejected; filter payloads; injection and break-out; neighbor context off by default and marked when on; entities through the PDF; renderer-owned glyphs; escaping; Spanish (`both` / `es` / `en`, count mismatch, lost number, provider failure, not-applicable); cancellation (between pages, before translation, during retries, back-off, extraction); v1/v2 selection; v1 escaping; no `return` in `finally`; final-write errors propagate; stale end-write refused; endpoints (PDF/DOCX for en/es/both, workspace page count, Unicode topics end to end, exclude plus forced failure). |
+| `test_summary_schema.py` | 19 | Validators, `PageSummary` invariants, prompt rules, message builders, filter spec, Unicode sanitizer. |
+| `test_ai_clients.py` | 15 | Import without a key and with no client (subprocess); `check` without a key; caching and hooks; chatbot configuration unchanged; exact request body (model, temperature, strict schema, timeout, `max_retries=0`); temperature omission; JSON-mode models; translation model selection; legacy translator only on v1. |
+| `test_evaluation_harness.py` | 8 | Fixtures, full offline run, schema-validity measurement, misattribution and unsupported-number detection, obeyed-injection flag, cost, live gate, CLI refusal. |
+
+### B4.14 Browser verification (local only)
+
+**Harness.** A throwaway harness ran **outside the repo**:
+
+- `server.test_settings` and cache sessions;
+- real views and the real v2 `create_summary`;
+- a structured fake model that filters by topic word, always fails on a `FAILPAGE` page, and returns `<Exhibit 4> & "x < y"` for a `SPECIALCHARS` page;
+- a fake index (`NOINDEX` → chat unavailable) and a fake `/ask`;
+- synthetic PDFs from the evaluation fixtures, uploaded via `DataTransfer`.
+
+No OpenAI, AWS, Postgres or real documents were used. The server ran on `127.0.0.1:8014`.
+
+| Run | What was checked | Result |
+|---|---|---|
+| 1 | Upload, 10 pages, `both`, no filter | B2 stages showed "Summarizing page i of 9" (9 usable of 10). The page reloaded into the B3 workspace: "English and Spanish · Text read from 9 pages", preview loaded, chat ready, PDF/DOCX 200. PDF: headings 1–4, 6–10 (blank p5 omitted). Short "Exhibit 8" p6 summarized. p9 shows "This page could not be summarized…" with no error text. p10 renders `<Exhibit 4> for O'Brien & Sons; "x < y"` literally. Spanish bullets under each English set. |
+| 2 | `es`, include `東京` / `medical` / `niño` | The client rejected a symbols-only topic ("Use letters or numbers…") and kept the CJK and accented topics. PDF: Spanish bullets only on p8 and Spanish notes elsewhere ("No hay contenido relevante…", "No se pudo resumir…"). p10 became `failed` because the harness fake attached bullets to a `no_relevant_content` reply; the validator rejected it twice. |
+| 3 | `en`, exclude `medical` | p8 `no_relevant_content`, the rest summarized, p9 failed note. Chat: asked a question, got an answer bubble. |
+| 4 | `NOINDEX` fixture, `both` | Server-rendered "Chat isn't available for this summary", form hidden, `/ask` 409, PDF/DOCX 200. |
+
+### B4.15 Remaining debt
+
+**B5:**
+
+- the real renderer (see B4.10): `ListFlowable` / hanging indents, statuses, EN/ES labels, metadata, embedded Unicode font. Headings are still the base-14 "Page N" and English even for `lang=es`;
+- a mobile HTML view from `PageSummary`;
+- update the `pdf_headings_to_markers` regex if the heading text changes.
+
+**B6:**
+
+- remove the v1 pipeline (`getPrompt`, `summarize_deposition`, the legacy clients, `legacy_markup`, the dict branch of `build_pdf_story`, and the v1-pinned page-identity tests, rewriting them for v2 if still wanted) and the `SUMMARY_PIPELINE_VERSION` switch;
+- document the new environment variables in the README;
+- record the production `GPT_MODEL` and package versions;
+- remove the now-unused `re` import in `views.py` if nothing else needs it;
+- pdf2docx's `fitz` notice;
+- S1–S3 lifecycle items, unchanged.
+
+**Owner:** run the live evaluation in B4.12 before merge.
+
+**Known limits:**
+
+- The digit-preservation check can reject a translation that legitimately spells out a number. The result is `translation_status = failed`, never a wrong value.
+- `uncertain` is the model's self-report.
+- The 40,000-character cap is a safety net, not a tuned value.
+
+### B4.16 Files changed
+
+| File | Change |
+|---|---|
+| `server/summary/summarizer.py` | `PageText` fields; `extract_source_pages`; v2 loop (`summarize_pages_v2` / `summarize_page_v2`); shared bounded, cancellable retries; structured calls with repair; failures as state; transitional renderer for `PageSummary` with escaping; v1 kept behind the switch; `create_summary` refactor; lazy client hooks; `pymupdf` import |
+| `server/summary/schema.py` | **new**: statuses, `PageSummary`, provider schemas, validators |
+| `server/summary/prompts.py` | **new**: legal-summary and translation prompts, JSON payload builders, repair note, filter spec |
+| `server/summary/ai_clients.py` | **new**: model, temperature and response-format config; lazy cached clients; evaluation clients |
+| `server/summary/deposition_chatbot.py` | lazy model and embeddings (same configuration) |
+| `server/vector_db_session.py` | lazy embeddings (same model and key) |
+| `server/settings.py` | non-secret `SUMMARY_*` / `TRANSLATION_MODEL` settings |
+| `server/test_settings.py` | pins the summary settings |
+| `server/util.py` | `sanitize_filter_topic` |
+| `server/views.py` | uses the Unicode topic sanitizer |
+| `server/static/javascript/home.js`, `server/templates/home.html` | client topic rule and hint match the server |
+| `server/tests/fixtures.py` | fakes answer the v2 protocol |
+| `server/tests/test_page_identity.py`, `server/tests/test_upload_processing.py` | deliberate updates (B4.13) |
+| `server/tests/b4_fixtures.py` | **new** |
+| `server/tests/test_summary_pipeline.py`, `test_summary_schema.py`, `test_ai_clients.py`, `test_evaluation_harness.py` | **new** (100 tests) |
+| `evaluation/` | **new**: harness, CLI, synthetic fixtures, README |
+| `BEAR_V2_HANDOFF.md` | this addendum |

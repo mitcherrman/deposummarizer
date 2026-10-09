@@ -2,18 +2,24 @@
 #Price modeling using openAI - on 500k page document, 0.01 per 4 runs to create embeddings (3-small) for local VDB storage, 0.01 per 16 queries to model (gpt-3.5-turbo)
 
 from langchain_text_splitters import RecursiveCharacterTextSplitter
-from langchain_openai import ChatOpenAI, OpenAIEmbeddings
-from decouple import config
 from threading import Lock
 from server import util
 from server.PGVector_encrypt.vectorstores import PGVectorEncrypt
+from server.summary import ai_clients
 
 LOAD_DB_FROM_FOLDER = True
 DB_PIECE_SIZE = 1
 
-#load model
-model = ChatOpenAI(openai_api_key=config('OPENAI_KEY'), model_name=config('GPT_MODEL'), temperature=1)
-embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPENAI_KEY'))
+#model and embeddings are built on first use (same models and settings as
+#before), so importing this module needs no OPENAI_KEY; tests may assign fakes
+model = None
+embedding = None
+
+def _model():
+    return model if model is not None else ai_clients.chatbot_model()
+
+def _embedding():
+    return embedding if embedding is not None else ai_clients.chatbot_embeddings()
 
 #thread locks
 db_lock = Lock() #used to access chroma database
@@ -41,7 +47,7 @@ def initBot(fullText, id, still_current=None):
             key=util.get_encryption_key(),
             connection=util.get_db_sqlalchemy_url(),
             collection_name=collection_name,
-            embeddings=embedding,
+            embeddings=_embedding(),
             engine_args=util.get_pgvector_engine_args(),
             pre_delete_collection=True
         )
@@ -60,7 +66,7 @@ def askQuestion(question, id, prompt_append, l):
         key=util.get_encryption_key(),
         connection=util.get_db_sqlalchemy_url(),
         collection_name=collection_name,
-        embeddings=embedding,
+        embeddings=_embedding(),
         engine_args=util.get_pgvector_engine_args()
     )
     retriever = vector_store.as_retriever(search_type="similarity", search_kwargs={"k":max(6,int(l/32))})
@@ -86,7 +92,7 @@ def askQuestion(question, id, prompt_append, l):
         {"role":"user","content":question}
     )
     try:
-        result = model.invoke(prompt)
+        result = _model().invoke(prompt)
     except:
         return None
     parsed_result = result.content

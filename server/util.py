@@ -7,6 +7,7 @@ import boto3, json
 from botocore.exceptions import ClientError
 from typing import List
 import base64
+import unicodedata
 
 #used to avoid race conditions when modifying sessions outside of views
 session_lock = Lock()
@@ -75,3 +76,24 @@ def params_to_dict(request: HttpResponse, *params: List[str]):
     Gets parameters from an HttpResponse object and converts them to a dict that includes specified params for easy use in templates.
     """
     return {param: request.GET[param] for param in params if param in request.GET}
+
+# dash/hyphen characters people type in topics, all kept as a plain hyphen
+_HYPHEN_LIKE = "‐‑‒–—−"
+
+def sanitize_filter_topic(text: str) -> str:
+    """
+    Keeps letters and numbers in any script (with their combining accents),
+    spaces and hyphens; drops everything else (punctuation, symbols, markup
+    characters such as < > & " '). Text is NFC-normalized first, so "café"
+    is the same however it was typed. Other whitespace becomes a space and
+    dash-like characters become "-".
+    """
+    out = []
+    for ch in unicodedata.normalize("NFC", text):
+        if ch in _HYPHEN_LIKE or ch == "-":
+            out.append("-")
+        elif ch.isspace():
+            out.append(" ")
+        elif unicodedata.category(ch)[0] in ("L", "N", "M"):
+            out.append(ch)
+    return "".join(out)

@@ -143,8 +143,8 @@ def summarize(request: HttpRequest):
     filter_keywords = []
     if filter_type != "none":
         for text in request.POST.getlist("filterText"):
-            # Sanitize input by removing characters that aren't a-z, A-Z, 0-9, or hyphen
-            filter_keywords.append(re.sub(r'[^a-zA-Z0-9- ]', '', text))
+            # keep letters and numbers in any language, spaces and hyphens
+            filter_keywords.append(util.sanitize_filter_topic(text))
 
     pdf_bytes = request.FILES['file'].read()
     if not _looks_like_pdf(pdf_bytes):

@@ -2,10 +2,15 @@ from django.contrib.sessions.backends.db import SessionStore as Dbss
 from decouple import config
 from server import util
 import psycopg
-from langchain_openai import OpenAIEmbeddings
 from server.PGVector_encrypt.vectorstores import PGVectorEncrypt
+from server.summary import ai_clients
 
-embedding = OpenAIEmbeddings(model="text-embedding-3-small", api_key=config('OPENAI_KEY'))
+#built on first use (same model and key as before) so that importing the
+#session engine needs no OPENAI_KEY
+embedding = None
+
+def _embedding():
+    return embedding if embedding is not None else ai_clients.chatbot_embeddings()
 
 class SessionStore(Dbss):
     """
@@ -61,7 +66,7 @@ class SessionStore(Dbss):
                 key=util.get_encryption_key(),
                 connection=util.get_db_sqlalchemy_url(),
                 collection_name=collection,
-                embeddings=embedding,
+                embeddings=_embedding(),
                 engine_args=util.get_pgvector_engine_args(),
                 pre_delete_collection=True
             )
@@ -76,14 +81,14 @@ class SessionStore(Dbss):
                 key=util.get_encryption_key(),
                 connection=util.get_db_sqlalchemy_url(),
                 collection_name=old_collection,
-                embeddings=embedding,
+                embeddings=_embedding(),
                 engine_args=util.get_pgvector_engine_args()
             )
             new_vector_store = PGVectorEncrypt(
                 key=util.get_encryption_key(),
                 connection=util.get_db_sqlalchemy_url(),
                 collection_name=new_collection,
-                embeddings=embedding,
+                embeddings=_embedding(),
                 engine_args=util.get_pgvector_engine_args()
             )
             # Get all embeddings from old collection

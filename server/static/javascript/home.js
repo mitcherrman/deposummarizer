@@ -151,9 +151,10 @@ function addFilterKeyword() {
     topicEntry.focus();
     return false;
   }
-  //mirrors the server, which keeps only these characters
-  if (!/[a-zA-Z0-9]/.test(text.replace(/[^a-zA-Z0-9- ]/g, ""))) {
-    setError("topicError", topicEntry, "Use letters A–Z or numbers in the topic.");
+  //mirrors the server, which keeps letters and numbers in any language
+  //(with accents), spaces and hyphens
+  if (!/[\p{L}\p{N}]/u.test(text.replace(/[^\p{L}\p{N}\p{M}\- ]/gu, ""))) {
+    setError("topicError", topicEntry, "Use letters or numbers in the topic.");
     topicEntry.focus();
     return false;
   }
